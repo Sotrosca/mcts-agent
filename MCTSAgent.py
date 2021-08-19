@@ -1,4 +1,5 @@
 import pickle
+import time
 
 class NaturalNumbersIterator():
     def __iter__(self):
@@ -38,6 +39,24 @@ class MontecarloPlayer():
             if child.id == id_child:
                 return child
         return None
+
+    def search_best_move(self, time_to_search=1):
+        start_time = time.time()
+        num_rollouts = 0
+
+        while time.time() - start_time < time_to_search:
+            self.explore_action_tree(epochs=1 , log=False)
+            num_rollouts += 1
+        run_time = time.time() - start_time
+        print(run_time)
+        print(num_rollouts)
+        return self.get_best_move()
+
+    def execute_action_on_simulation(self, action_node):
+        self.original_simulation.set_state(action_node.get_simulation_state())
+        self.copy_simulation.set_state(action_node.get_simulation_state())
+        self.action_tree = action_node
+        self.action_tree_depth -= 1
 
     def explore_action_tree(self, epochs = 1000, log=True, log_frecuency=100):
         for epoch in range(epochs):
@@ -80,6 +99,8 @@ class MontecarloPlayer():
             new_simulation_state = pickle.loads(pickle.dumps(self.copy_simulation.get_state(), -1))
             action_node.childs.append(Node(action_node, [], action, new_simulation_state, self.ids_nodes.__next__(), new_level))
         self.set_action_tree_depth(new_level)
+
+
 class Node():
     def __init__(self, parent, childs, action, simulation_state, id_node, level):
         self.parent = parent #Node

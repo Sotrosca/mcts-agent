@@ -3,7 +3,7 @@ import numpy as np
 import pickle
 
 def selection_function(tree_nodes):
-    UCT_constant = 0.000000000001
+    UCT_constant = 1
     selected_node = tree_nodes
 
     while selected_node.has_childs():
@@ -17,7 +17,7 @@ def selection_function(tree_nodes):
 
         else:
             for child in best_childs:
-                child_success_ratio = (child.value + 1) / (child.visits + 1)
+                child_success_ratio = (child.value) / (child.visits)
                 log_ratio = (np.log(selected_node.visits) / child.visits) ** 0.5
                 child_value_UCT = child_success_ratio + UCT_constant * log_ratio
 
@@ -47,7 +47,8 @@ def simulation_function(action_node, simulation_copy):
     return simulation_copy
 
 def retropropagation_function(original_simulation, simulation_finished, action_node):
-    value_node = 1 / simulation_finished.time
+
+    value_node = 1 / simulation_finished.epochs
     actual_node = action_node
 
     actual_node.visits += 1
