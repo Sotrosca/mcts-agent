@@ -40,16 +40,17 @@ class MontecarloPlayer():
                 return child
         return None
 
-    def search_best_move(self, time_to_search=1):
+    def search_best_move(self, time_to_search=1, log=False):
         start_time = time.time()
         num_rollouts = 0
 
         while time.time() - start_time < time_to_search:
             self.explore_action_tree(epochs=1 , log=False)
             num_rollouts += 1
-        run_time = time.time() - start_time
-        print(run_time)
-        print(num_rollouts)
+        if log:
+            run_time = time.time() - start_time
+            print(run_time)
+            print(num_rollouts)
         return self.get_best_move()
 
     def execute_action_on_simulation(self, action_node):
