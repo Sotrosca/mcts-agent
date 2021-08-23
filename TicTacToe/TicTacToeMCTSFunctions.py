@@ -46,17 +46,14 @@ def simulation_function(action_node, simulation_copy):
     return simulation_copy
 
 def retropropagation_function(original_simulation, simulation_finished, action_node):
-    player_one_move = action_node.simulation_state.get('player_one_move')
-    player_one_move_multiplier = 1 if player_one_move else -1
-    player_winner = simulation_finished.player_winner()
-    if player_winner == 'O':
-        value_node = 1 * player_one_move_multiplier
-    elif player_winner == '-':
-        value_node = 0
-    elif player_winner == 'X':
-        value_node = -1 * player_one_move_multiplier
-    actual_node = action_node
 
+    player_winner = simulation_finished.player_winner()
+    if player_winner == '-':
+        value_node = 0
+    else:
+        value_node = 1 if player_winner != action_node.simulation_state.get('player_turn_figure') else -1
+
+    actual_node = action_node
     actual_node.visits += 1
     actual_node.value += value_node
 

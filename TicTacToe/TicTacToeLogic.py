@@ -8,12 +8,15 @@ class TicTacToe():
         self.columns_indices = self.build_columns_indices()
         self.diagonals_indices = [[(0, 0), (1, 1), (2, 2)], [(0, 2), (1, 1), (2, 0)]]
         self.line_indices = self.rows_indices + self.columns_indices + self.diagonals_indices
+        self.player_one_figure = 'X'
+        self.player_two_figure = 'O'
 
     def get_state(self):
         state_dict = {
             'board' : self.board,
             'player_one_move' : self.player_one_move,
-            'turn' : self.turn
+            'turn' : self.turn,
+            'player_turn_figure' : self.get_player_turn_figure()
         }
         return state_dict
 
@@ -84,3 +87,6 @@ class TicTacToe():
             return first_element
         else:
             return None
+
+    def get_player_turn_figure(self):
+        return self.player_one_figure if self.player_one_move else self.player_two_figure
