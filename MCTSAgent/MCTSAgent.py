@@ -106,7 +106,7 @@ class Node():
     def __init__(self, parent, childs, action, simulation_state, id_node, level):
         self.parent = parent #Node
         self.childs = childs #Node[]
-        self.action = action # Accion realizada para llegar al estado representado en simulationCopy
+        self.action = action # Accion realizada para llegar al estado representado en simulation_state
         self.simulation_state = simulation_state # Estado de la simulacion con la action ya realizada
         self.visits = 0
         self.value = 0
