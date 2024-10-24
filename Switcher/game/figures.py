@@ -84,7 +84,55 @@ figures = {
         [2, 0, 1, 0, 2],
         [2, 2, 0, 2, 2],
     ],
+    "L-T": [
+        [2, 2, 0, 2, 2],
+        [2, 0, 1, 0, 2],
+        [2, 0, 1, 1, 0],
+        [0, 1, 1, 0, 2],
+        [2, 0, 0, 2, 2],
+    ],
+    "L-T inverted": [
+        [2, 2, 0, 2, 2],
+        [2, 0, 1, 0, 2],
+        [0, 1, 1, 0, 2],
+        [2, 0, 1, 1, 0],
+        [2, 2, 0, 0, 2],
+    ],
+    "L-I": [
+        [2, 0, 0, 0, 0, 2],
+        [0, 1, 1, 1, 1, 0],
+        [2, 0, 1, 0, 0, 2],
+        [2, 2, 0, 2, 2, 2],
+    ],
+    "L-I inverted": [
+        [2, 0, 0, 0, 0, 2],
+        [0, 1, 1, 1, 1, 0],
+        [2, 0, 0, 1, 0, 2],
+        [2, 2, 2, 0, 2, 2],
+    ],
+    "W": [
+        [2, 0, 0, 0, 2],
+        [0, 1, 1, 0, 2],
+        [2, 0, 1, 1, 0],
+        [2, 2, 0, 1, 0],
+        [2, 2, 2, 0, 2],
+    ],
 }
+
+
+class BoardFigure:
+    def __init__(self, name, x, y, color):
+        self.name = name
+        self.x = x
+        self.y = y
+        self.color = color
+
+
+figures_deck = []
+
+for key in figures.keys():
+    for _ in range(3):
+        figures_deck.append(key)
 
 
 def rotate_90(mat):
@@ -128,8 +176,21 @@ def match_at_position(matrix, figure, x, y, color_number):
     return True
 
 
-def find_figures(matrix, color_number):
+def find_figure(matrix, figure_name, x, y, color_number):
+    figure = figures[figure_name]
+    variations = generate_variations(figure)
+    for variation in variations:
+        if match_at_position(matrix, variation, x, y, color_number):
+            print(
+                f"Figura {figure_name} encontrada en posición ({x}, {y}) con color {color_number}"
+            )
+            print(variation)
+            return BoardFigure(figure_name, x, y, color_number)
+    return None
 
+
+def find_figures(matrix, color_number):
+    board_figures = []
     for name, figure in figures.items():
         variations = generate_variations(figure)
         for x in range(len(matrix)):
@@ -141,6 +202,9 @@ def find_figures(matrix, color_number):
                             f"Figura {name} encontrada en posición ({x}, {y}) con color {color_number}"
                         )
                         print(variation)
+                        figure = BoardFigure(name, x, y, color_number)
+                        board_figures.append(figure)
+    return board_figures
 
 
 def add_border_to_board(board):
