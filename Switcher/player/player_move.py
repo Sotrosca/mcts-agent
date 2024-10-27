@@ -34,6 +34,16 @@ class SwitchMove(PlayerMove):
             "Switch", move_card_slot, cell_x_target, cell_y_target, steps_x, steps_y
         )
 
+    def possible_moves(self, x, y):
+        moves = [
+            (x + self.steps_x, y + self.steps_y),
+            (x - self.steps_y, y + self.steps_x),
+            (x - self.steps_x, y - self.steps_y),
+            (x + self.steps_y, y - self.steps_x),
+        ]
+
+        return moves
+
 
 class PassMove(PlayerMove):
     def __init__(self):

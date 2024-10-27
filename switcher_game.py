@@ -2,8 +2,8 @@ import sys
 
 import pygame
 
-from Switcher.game.figures import find_figures
 from Switcher.logic import Board, Switcher
+from Switcher.logic.figures import find_figures
 
 players_qty = 2
 game = Switcher(players_qty)

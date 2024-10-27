@@ -1,8 +1,8 @@
 import numpy as np
 
-from Switcher.game.board import Board
-from Switcher.game.figures import figures_deck, find_figure, find_figures
-from Switcher.game.moves import MovementCard, moves_deck
+from Switcher.logic.board import Board
+from Switcher.logic.figures import figures_deck, find_figure, find_figures
+from Switcher.logic.moves import MovementCard, moves_deck
 from Switcher.player.player import Player
 from Switcher.player.player_move import (
     MatchFigureMove,
@@ -142,6 +142,9 @@ class Switcher:
 
     def check_player_win(self, player: Player):
         return len(player.figures_deck) == 0 and len(player.total_figures_slots()) == 0
+
+    def switch_possible_moves(self, switch_move: SwitchMove, x, y):
+        return switch_move.possible_moves(x, y)
 
 
 if __name__ == "__main__":
