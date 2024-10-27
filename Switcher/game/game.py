@@ -1,4 +1,5 @@
 from Switcher.logic.logic import Switcher
+from Switcher.player.player import Player
 from Switcher.player.player_move import PassMove, SwitchMove
 
 
@@ -30,3 +31,7 @@ class Game:
     def pass_turn(self):
         move = PassMove()
         self.logic.do_move(move)
+
+    def get_player_figures(self, player_idx):
+        player: Player = self.logic.players[player_idx]
+        return player.figures_slots

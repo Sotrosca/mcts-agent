@@ -4,6 +4,7 @@ import sys
 import pygame
 
 from Switcher.game import Config, Game
+from Switcher.logic.figures import figures
 
 
 class GameUI:
@@ -25,23 +26,43 @@ class GameUI:
         self.selected_cells = []
         self.possible_switches = None
 
-        # Definir player1_rect y player2_rect
-        self.player1_rect = pygame.Rect(
+        self.player1_rect, self.player2_rect = self.create_player_rects()
+        self.pass_turn_button = pygame.Rect(
+            (Config.SCREEN_WIDTH - 100) // 2, Config.SCREEN_HEIGHT - 50, 100, 30
+        )
+        self.player1_figures_rect, self.player2_figures_rect = (
+            self.create_player_figures_rects()
+        )
+
+    def create_player_rects(self):
+        player1_rect = pygame.Rect(
             self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
             Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2,
             Config.CARD_WIDTH,
             Config.CARD_HEIGHT,
         )
-        self.player2_rect = pygame.Rect(
+        player2_rect = pygame.Rect(
             self.board_rect.x + Config.BOARD_SIZE + Config.MARGIN,
             Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2,
             Config.CARD_WIDTH,
             Config.CARD_HEIGHT,
         )
+        return player1_rect, player2_rect
 
-        self.pass_turn_button = pygame.Rect(
-            (Config.SCREEN_WIDTH - 100) // 2, Config.SCREEN_HEIGHT - 50, 100, 30
+    def create_player_figures_rects(self):
+        player1_figures_rect = pygame.Rect(
+            self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
+            self.player1_rect.y - 160,
+            Config.CARD_WIDTH,
+            160,
         )
+        player2_figures_rect = pygame.Rect(
+            self.board_rect.x + Config.BOARD_SIZE + Config.MARGIN,
+            self.player2_rect.y - 160,
+            Config.CARD_WIDTH,
+            160,
+        )
+        return player1_figures_rect, player2_figures_rect
 
     def draw_board(self):
         pygame.draw.rect(self.screen, Config.BOARD_BACKGROUND_COLOR, self.board_rect)
@@ -149,6 +170,89 @@ class GameUI:
                 pygame.draw.rect(self.screen, color, player_card_rect)
                 pygame.draw.rect(self.screen, border_color, player_card_rect, 3)
                 self.screen.blit(card_text, (card_pos[0] + 10, card_pos[1] + 10))
+
+    def draw_figure(self, screen, figure, top_left_x, top_left_y):
+        for i, row in enumerate(figure):
+            for j, cell in enumerate(row):
+                if cell == 1:
+                    pygame.draw.rect(
+                        screen,
+                        Config.FIGURE_COLOR,
+                        pygame.Rect(
+                            top_left_x + j * Config.CELL_SIZE,
+                            top_left_y + i * Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                        ),
+                        border_radius=2,
+                    )
+                    # draw border
+                    pygame.draw.rect(
+                        screen,
+                        (40, 40, 40),
+                        pygame.Rect(
+                            top_left_x + j * Config.CELL_SIZE,
+                            top_left_y + i * Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                        ),
+                        1,
+                        border_radius=2,
+                    )
+
+    def draw_player_figures(self):
+        pygame.draw.rect(self.screen, (200, 200, 200), self.player1_figures_rect)
+        pygame.draw.rect(self.screen, (200, 200, 200), self.player2_figures_rect)
+
+        # Draw player 1 figures
+        player1_figures = self.game.get_player_figures(0)
+        for idx, (slot_idx, figure_name) in enumerate(player1_figures.items()):
+            x = self.player1_figures_rect.x + (idx % 2) * (
+                self.player1_figures_rect.width // 2
+            )
+            y = self.player1_figures_rect.y + (idx // 2) * (
+                self.player1_figures_rect.height // 2
+            )
+            figure_rect = pygame.Rect(
+                x,
+                y,
+                self.player1_figures_rect.width // 2,
+                self.player1_figures_rect.height // 2,
+            )
+            pygame.draw.rect(self.screen, (255, 255, 255), figure_rect)
+            pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
+            figure_matrix = figures.get(figure_name)
+            if figure_matrix:
+                figure_width = len(figure_matrix[0]) * Config.CELL_SIZE
+                figure_height = len(figure_matrix) * Config.CELL_SIZE
+                offset_x = (figure_rect.width - figure_width) // 2
+                offset_y = (figure_rect.height - figure_height) // 2
+                self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
+
+        # Draw player 2 figures
+        player2_figures = self.game.get_player_figures(1)
+        for idx, (slot_idx, figure_name) in enumerate(player2_figures.items()):
+            x = self.player2_figures_rect.x + (idx % 2) * (
+                self.player2_figures_rect.width // 2
+            )
+            y = self.player2_figures_rect.y + (idx // 2) * (
+                self.player2_figures_rect.height // 2
+            )
+            figure_rect = pygame.Rect(
+                x,
+                y,
+                self.player2_figures_rect.width // 2,
+                self.player2_figures_rect.height // 2,
+            )
+            pygame.draw.rect(self.screen, (255, 255, 255), figure_rect)
+            pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
+            figure_matrix = figures.get(figure_name)
+            if figure_matrix:
+                figure_width = len(figure_matrix[0]) * Config.CELL_SIZE
+                figure_height = len(figure_matrix) * Config.CELL_SIZE
+                offset_x = (figure_rect.width - figure_width) // 2
+                offset_y = (figure_rect.height - figure_height) // 2
+                self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
 
     def get_card_position(self, player_index, card_index):
         if player_index == 0:
@@ -269,6 +373,7 @@ class GameUI:
             self.draw_card_areas()
             self.draw_cards()
             self.draw_pass_turn_button()
+            self.draw_player_figures()
             pygame.display.flip()
         pygame.quit()
         sys.exit()
