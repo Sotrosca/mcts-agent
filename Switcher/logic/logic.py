@@ -44,6 +44,7 @@ class Switcher:
 
     def draw_card(self, deck, qty=1, discard_deck=None):
         if len(deck) < qty:
+            print("Not enough cards to draw")
             if discard_deck is not None:
                 deck.extend(self.shuffle_deck(discard_deck))
                 discard_deck.clear()
@@ -51,8 +52,6 @@ class Switcher:
                 raise ValueError("Not enough cards to draw")
         cards_drawn = deck[:qty]
         deck = deck[qty:]
-        if discard_deck is not None:
-            discard_deck.extend(cards_drawn)
         return cards_drawn, deck
 
     def deal_figures(self):
@@ -95,11 +94,14 @@ class Switcher:
         hand_max_size = self.current_player.hand_max_size
 
         while hand_size < hand_max_size:
-            move_card = self.draw_card(self.moves_deck, 1, self.moves_discard)
-            self.current_player.draw_move_card(move_card)
+            move_card, self.moves_deck = self.draw_card(
+                self.moves_deck, 1, self.moves_discard
+            )
+            self.current_player.draw_move_card(move_card[0])
             hand_size += 1
 
         self.player_turn = (self.player_turn + 1) % self.players_quantity
+        self.current_player = self.players[self.player_turn]
 
     def player_switch(self, player: Player, player_move: SwitchMove):
         move_card = player.play_move_card(player_move.move_card_slot)
@@ -111,6 +113,7 @@ class Switcher:
             player_move.steps_x,
             player_move.steps_y,
         )
+        self.moves_discard.append(move_card)
 
     def player_match_figure(self, player: Player, player_move: MatchFigureMove):
         figure_name = player.show_figure(player_move.move_card_slot)

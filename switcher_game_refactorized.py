@@ -39,6 +39,10 @@ class GameUI:
             Config.CARD_HEIGHT,
         )
 
+        self.pass_turn_button = pygame.Rect(
+            (Config.SCREEN_WIDTH - 100) // 2, Config.SCREEN_HEIGHT - 50, 100, 30
+        )
+
     def draw_board(self):
         pygame.draw.rect(self.screen, Config.BOARD_BACKGROUND_COLOR, self.board_rect)
         board_image = [
@@ -201,6 +205,14 @@ class GameUI:
                 break
         return self.selected_card, self.selected_player_area
 
+    def draw_pass_turn_button(self):
+        pygame.draw.rect(self.screen, (200, 200, 200), self.pass_turn_button)
+        font = pygame.font.SysFont("Arial", 16)
+        text = font.render("Pass Turn", True, (0, 0, 0))
+        self.screen.blit(
+            text, (self.pass_turn_button.x + 10, self.pass_turn_button.y + 5)
+        )
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -209,7 +221,14 @@ class GameUI:
                 x, y = pygame.mouse.get_pos()
                 area = self.event_position_area(x, y)
 
-                if (
+                if self.pass_turn_button.collidepoint(x, y):
+                    self.game.pass_turn()
+                    self.selected_card = None
+                    self.selected_player_area = None
+                    self.selected_cells.clear()
+                    self.possible_switches = None
+
+                elif (
                     area == "board"
                     and self.selected_card is not None
                     and self.selected_player_area is not None
@@ -249,6 +268,7 @@ class GameUI:
             self.draw_board()
             self.draw_card_areas()
             self.draw_cards()
+            self.draw_pass_turn_button()
             pygame.display.flip()
         pygame.quit()
         sys.exit()

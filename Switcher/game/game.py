@@ -1,5 +1,5 @@
 from Switcher.logic.logic import Switcher
-from Switcher.player.player_move import SwitchMove
+from Switcher.player.player_move import PassMove, SwitchMove
 
 
 class Game:
@@ -26,3 +26,7 @@ class Game:
         switch_move = self.get_current_player_card(selected_move_idx)
         x, y = selected_cell
         return self.logic.switch_possible_moves(switch_move, x, y)
+
+    def pass_turn(self):
+        move = PassMove()
+        self.logic.do_move(move)
