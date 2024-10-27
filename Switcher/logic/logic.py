@@ -56,7 +56,7 @@ class Switcher:
 
     def deal_figures(self):
         for player in self.players:
-            player_figures_deck, _ = self.draw_card(
+            player_figures_deck, self.figures_deck = self.draw_card(
                 self.figures_deck, self.figures_deck_by_player
             )
             player.set_figures_deck(player_figures_deck)  # Set the deck for the player
@@ -79,10 +79,12 @@ class Switcher:
         valid_move = self.board.switch_cells(cell_y, cell_x, cell2_y, cell2_x)
         return valid_move
 
-    def find_figures(self):
+    def find_board_figures(self):
         board_state_with_border = self.board.get_board_state_color(with_border=True)
+        board_figures = []
         for color in range(1, self.color_quantity + 1):
-            find_figures(board_state_with_border, color)
+            board_figures.extend(find_figures(board_state_with_border, color))
+        return board_figures
 
     def valid_figure(self, figure_name, x, y, figure_color):
         board_state_with_border = self.board.get_board_state_color(with_border=True)

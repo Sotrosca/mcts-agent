@@ -25,16 +25,19 @@ class GameUI:
         self.selected_player_area = None
         self.selected_cells = []
         self.possible_switches = None
+        self.board_figures = []
 
-        self.player1_rect, self.player2_rect = self.create_player_rects()
+        self.player1_hand_rect, self.player2_hand_rect = self.create_player_hand_rects()
         self.pass_turn_button = pygame.Rect(
             (Config.SCREEN_WIDTH - 100) // 2, Config.SCREEN_HEIGHT - 50, 100, 30
         )
-        self.player1_figures_rect, self.player2_figures_rect = (
-            self.create_player_figures_rects()
+        self.player1_figures_area_rect, self.player2_figures_area_rect = (
+            self.create_player_figures_area_rects()
         )
 
-    def create_player_rects(self):
+        self.player_figures_rect = [{} for _ in range(game.players_qty)]
+
+    def create_player_hand_rects(self):
         player1_rect = pygame.Rect(
             self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
             Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2,
@@ -49,20 +52,20 @@ class GameUI:
         )
         return player1_rect, player2_rect
 
-    def create_player_figures_rects(self):
-        player1_figures_rect = pygame.Rect(
+    def create_player_figures_area_rects(self):
+        player1_figures_area_rect = pygame.Rect(
             self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
-            self.player1_rect.y - 160,
+            self.player1_hand_rect.y - 160,
             Config.CARD_WIDTH,
             160,
         )
-        player2_figures_rect = pygame.Rect(
+        player2_figures_area_rect = pygame.Rect(
             self.board_rect.x + Config.BOARD_SIZE + Config.MARGIN,
-            self.player2_rect.y - 160,
+            self.player2_hand_rect.y - 160,
             Config.CARD_WIDTH,
             160,
         )
-        return player1_figures_rect, player2_figures_rect
+        return player1_figures_area_rect, player2_figures_area_rect
 
     def draw_board(self):
         pygame.draw.rect(self.screen, Config.BOARD_BACKGROUND_COLOR, self.board_rect)
@@ -200,26 +203,41 @@ class GameUI:
                         border_radius=2,
                     )
 
+    def figure_in_board(self, figure_name):
+        for figure in self.board_figures:
+            if figure.name == figure_name:
+                return True
+        return False
+
     def draw_player_figures(self):
-        pygame.draw.rect(self.screen, (200, 200, 200), self.player1_figures_rect)
-        pygame.draw.rect(self.screen, (200, 200, 200), self.player2_figures_rect)
+        pygame.draw.rect(self.screen, (200, 200, 200), self.player1_figures_area_rect)
+        pygame.draw.rect(self.screen, (200, 200, 200), self.player2_figures_area_rect)
 
         # Draw player 1 figures
         player1_figures = self.game.get_player_figures(0)
-        for idx, (slot_idx, figure_name) in enumerate(player1_figures.items()):
-            x = self.player1_figures_rect.x + (idx % 2) * (
-                self.player1_figures_rect.width // 2
+        for slot_idx, figure_name in player1_figures.items():
+            x = self.player1_figures_area_rect.x + (slot_idx % 2) * (
+                self.player1_figures_area_rect.width // 2
             )
-            y = self.player1_figures_rect.y + (idx // 2) * (
-                self.player1_figures_rect.height // 2
+            y = self.player1_figures_area_rect.y + (slot_idx // 2) * (
+                self.player1_figures_area_rect.height // 2
             )
-            figure_rect = pygame.Rect(
-                x,
-                y,
-                self.player1_figures_rect.width // 2,
-                self.player1_figures_rect.height // 2,
+
+            if slot_idx not in self.player_figures_rect[0]:
+                self.player_figures_rect[0][slot_idx] = pygame.Rect(
+                    x,
+                    y,
+                    self.player1_figures_area_rect.width // 2,
+                    self.player1_figures_area_rect.height // 2,
+                )
+            figure_rect = self.player_figures_rect[0][slot_idx]
+
+            figure_background_color = (
+                Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
+                if self.figure_in_board(figure_name)
+                else Config.FIGURE_BACKGROUND_COLOR
             )
-            pygame.draw.rect(self.screen, (255, 255, 255), figure_rect)
+            pygame.draw.rect(self.screen, figure_background_color, figure_rect)
             pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
             figure_matrix = figures.get(figure_name)
             if figure_matrix:
@@ -231,20 +249,29 @@ class GameUI:
 
         # Draw player 2 figures
         player2_figures = self.game.get_player_figures(1)
-        for idx, (slot_idx, figure_name) in enumerate(player2_figures.items()):
-            x = self.player2_figures_rect.x + (idx % 2) * (
-                self.player2_figures_rect.width // 2
+        for slot_idx, figure_name in player2_figures.items():
+            x = self.player2_figures_area_rect.x + (slot_idx % 2) * (
+                self.player2_figures_area_rect.width // 2
             )
-            y = self.player2_figures_rect.y + (idx // 2) * (
-                self.player2_figures_rect.height // 2
+            y = self.player2_figures_area_rect.y + (slot_idx // 2) * (
+                self.player2_figures_area_rect.height // 2
             )
-            figure_rect = pygame.Rect(
-                x,
-                y,
-                self.player2_figures_rect.width // 2,
-                self.player2_figures_rect.height // 2,
+            if slot_idx not in self.player_figures_rect[1]:
+                self.player_figures_rect[1][slot_idx] = pygame.Rect(
+                    x,
+                    y,
+                    self.player2_figures_area_rect.width // 2,
+                    self.player2_figures_area_rect.height // 2,
+                )
+            figure_rect = self.player_figures_rect[1][slot_idx]
+
+            figure_background_color = (
+                Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
+                if self.figure_in_board(figure_name)
+                else Config.FIGURE_BACKGROUND_COLOR
             )
-            pygame.draw.rect(self.screen, (255, 255, 255), figure_rect)
+
+            pygame.draw.rect(self.screen, figure_background_color, figure_rect)
             pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
             figure_matrix = figures.get(figure_name)
             if figure_matrix:
@@ -280,14 +307,18 @@ class GameUI:
     def event_position_area(self, x, y):
         if self.board_rect.collidepoint(x, y):
             return "board"
-        if self.player1_rect.collidepoint(x, y):
-            return "player1"
-        if self.player2_rect.collidepoint(x, y):
-            return "player2"
+        if self.player1_hand_rect.collidepoint(x, y):
+            return "player1_hand"
+        if self.player2_hand_rect.collidepoint(x, y):
+            return "player2_hand"
+        if self.player1_figures_area_rect.collidepoint(x, y):
+            return "player1_figures_area"
+        if self.player2_figures_area_rect.collidepoint(x, y):
+            return "player2_figures_area"
         return None
 
     def handle_card_click(self, area, pos):
-        player_index = 0 if area == "player1" else 1
+        player_index = 0 if area == "player1_hand" else 1
 
         if self.game.logic.player_turn != player_index:
             self.selected_card = None
@@ -306,6 +337,23 @@ class GameUI:
                 else:
                     self.selected_card = i
                     self.selected_player_area = player_index
+                break
+        return self.selected_card, self.selected_player_area
+
+    def handle_figure_click(self, area, pos):
+        player_index = 0 if area == "player1_figures_area" else 1
+        for i, rect in self.player_figures_rect[player_index].items():
+            if rect.collidepoint(pos):
+                if self.game.logic.players[player_index].figures_slots[i] is None or (
+                    self.selected_card == i
+                    and self.selected_player_area == player_index
+                ):
+                    self.selected_card = None
+                    self.selected_player_area = None
+                else:
+                    self.selected_card = i
+                    self.selected_player_area = player_index
+                print(self.selected_card, self.selected_player_area)
                 break
         return self.selected_card, self.selected_player_area
 
@@ -355,17 +403,24 @@ class GameUI:
                     elif len(self.selected_cells) == 1:
                         self.selected_cells.append((cell_x, cell_y))
                         self.game.switch_colors(self.selected_cells, self.selected_card)
+                        self.board_figures = self.game.find_board_figures()
                         self.selected_cells.clear()
                         self.possible_switches = None
                         self.selected_card = None
 
-                elif area == "player1" or area == "player2":
+                elif area == "player1_hand" or area == "player2_hand":
                     self.handle_card_click(area, (x, y))
                     self.selected_move = self.selected_card
+
+                elif area == "player1_figures_area" or area == "player2_figures_area":
+                    self.handle_figure_click(area, (x, y))
+
         return True
 
     def main_loop(self):
         running = True
+
+        self.board_figures = game.find_board_figures()
         while running:
             running = self.handle_events()
             self.screen.fill(Config.BACKGROUND_COLOR)

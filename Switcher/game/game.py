@@ -35,3 +35,6 @@ class Game:
     def get_player_figures(self, player_idx):
         player: Player = self.logic.players[player_idx]
         return player.figures_slots
+
+    def find_board_figures(self):
+        return self.logic.find_board_figures()

@@ -198,10 +198,10 @@ def find_figures(matrix, color_number):
                 for variation in variations:
 
                     if match_at_position(matrix, variation, x, y, color_number):
-                        print(
-                            f"Figura {name} encontrada en posición ({x}, {y}) con color {color_number}"
-                        )
-                        print(variation)
+                        # print(
+                        #    f"Figura {name} encontrada en posición ({x}, {y}) con color {color_number}"
+                        # )
+                        # print(variation)
                         figure = BoardFigure(name, x, y, color_number)
                         board_figures.append(figure)
     return board_figures
