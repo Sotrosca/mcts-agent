@@ -1,3 +1,6 @@
+from Switcher.logic.moves import SwitchMovementCard
+
+
 class Player:
     figures_slots = {}
     figures_blocked = []
@@ -36,7 +39,7 @@ class Player:
         figure = self.figures_slots[figure_slot]
         return figure
 
-    def play_move_card(self, move_card_slot):
+    def play_move_card(self, move_card_slot) -> SwitchMovementCard:
         move_card = self.hand[move_card_slot]
         self.hand[move_card_slot] = None
         self.hand_size -= 1

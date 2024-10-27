@@ -1,4 +1,4 @@
-class MovementCard:
+class SwitchMovementCard:
     moves = None
 
     def __init__(self, cells_to_switch_row, cells_to_switch_column, name=None):
@@ -13,6 +13,9 @@ class MovementCard:
         moves.append((cells_to_switch_column, -cells_to_switch_row))  # Symmetric move
         moves.append((-cells_to_switch_column, cells_to_switch_row))  # Symmetric move
         self.moves = moves
+
+    def possible_moves(self, x, y):
+        return [(x + move[0], y + move[1]) for move in self.moves]
 
     def __eq__(self, other):
         """
@@ -44,4 +47,4 @@ moves_deck = []
 for key in moves.keys():
     qty = 5 if key in ["Knight", "Inverted knight"] else 6
     for _ in range(qty):
-        moves_deck.append(MovementCard(*moves[key], name=key))
+        moves_deck.append(SwitchMovementCard(*moves[key], name=key))

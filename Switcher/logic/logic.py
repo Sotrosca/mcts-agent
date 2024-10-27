@@ -2,7 +2,7 @@ import numpy as np
 
 from Switcher.logic.board import Board
 from Switcher.logic.figures import figures_deck, find_figure, find_figures
-from Switcher.logic.moves import MovementCard, moves_deck
+from Switcher.logic.moves import SwitchMovementCard, moves_deck
 from Switcher.player.player import Player
 from Switcher.player.player_move import (
     MatchFigureMove,
@@ -143,8 +143,19 @@ class Switcher:
     def check_player_win(self, player: Player):
         return len(player.figures_deck) == 0 and len(player.total_figures_slots()) == 0
 
-    def switch_possible_moves(self, switch_move: SwitchMove, x, y):
-        return switch_move.possible_moves(x, y)
+    def switch_possible_moves(self, switch_move: SwitchMovementCard, x, y):
+        moves = switch_move.possible_moves(x, y)
+
+        valid_moves = []
+        for move in moves:
+            if (
+                move[0] >= 0
+                and move[0] < self.board.size[0]
+                and move[1] >= 0
+                and move[1] < self.board.size[1]
+            ):
+                valid_moves.append(move)
+        return valid_moves
 
 
 if __name__ == "__main__":

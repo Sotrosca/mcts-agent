@@ -4,7 +4,6 @@ import sys
 import pygame
 
 from Switcher.game import Config, Game
-from Switcher.logic.figures import find_figures
 
 
 class GameUI:
@@ -23,6 +22,8 @@ class GameUI:
         self.player_card_rects = [{} for _ in range(game.players_qty)]
         self.selected_card = None
         self.selected_player_area = None
+        self.selected_cells = []
+        self.possible_switches = None
 
         # Definir player1_rect y player2_rect
         self.player1_rect = pygame.Rect(
@@ -48,8 +49,20 @@ class GameUI:
             for x, color in enumerate(row):
                 border_color = (
                     Config.SELECTED_CELL_BORDER_COLOR
-                    if (x, y) in self.game.selected_cells
-                    else Config.BORDER_COLOR
+                    if (x, y) in self.selected_cells
+                    else (
+                        Config.POSSIBLE_SWITCHES_BORDER_COLOR
+                        if self.possible_switches is not None
+                        and (x, y) in self.possible_switches
+                        else Config.BORDER_COLOR
+                    )
+                )
+                border_radius = (
+                    Config.SELECTED_CELL_BORDER_RADIUS
+                    if (x, y) in self.selected_cells
+                    or self.possible_switches is not None
+                    and (x, y) in self.possible_switches
+                    else Config.BORDER_RADIUS
                 )
                 square_rect = pygame.Rect(
                     self.board_rect.x
@@ -59,9 +72,15 @@ class GameUI:
                     Config.BOARD_SIZE // self.game.board.size[0],
                     Config.BOARD_SIZE // self.game.board.size[0],
                 )
-                pygame.draw.rect(self.screen, color, square_rect, border_radius=10)
                 pygame.draw.rect(
-                    self.screen, border_color, square_rect, 3, border_radius=10
+                    self.screen, color, square_rect, border_radius=border_radius
+                )
+                pygame.draw.rect(
+                    self.screen,
+                    border_color,
+                    square_rect,
+                    3,
+                    border_radius=border_radius,
                 )
 
     def draw_card_area(self, player_index, pos):
@@ -96,8 +115,9 @@ class GameUI:
             player_cards = self.game.logic.players[player_index].hand
             for i, card in player_cards.items():
                 card_pos = self.get_card_position(player_index, i)
+                name = card.name if card is not None else "None"
                 card_text = pygame.font.SysFont("Arial", 16).render(
-                    card.name, True, (0, 0, 0)
+                    name, True, (0, 0, 0)
                 )
                 if i not in self.player_card_rects[player_index]:
                     self.player_card_rects[player_index][i] = pygame.Rect(
@@ -111,7 +131,18 @@ class GameUI:
                     and player_index == self.game.logic.player_turn
                     else Config.BORDER_COLOR
                 )
-                pygame.draw.rect(self.screen, Config.CARD_COLOR, player_card_rect)
+
+                color = (
+                    Config.EMPTY_CARD_COLOR
+                    if card is None
+                    else (
+                        Config.CURRENT_PLAYER_CARD_COLOR
+                        if player_index == self.game.logic.player_turn
+                        else Config.CARD_COLOR
+                    )
+                )
+
+                pygame.draw.rect(self.screen, color, player_card_rect)
                 pygame.draw.rect(self.screen, border_color, player_card_rect, 3)
                 self.screen.blit(card_text, (card_pos[0] + 10, card_pos[1] + 10))
 
@@ -153,11 +184,12 @@ class GameUI:
         if self.game.logic.player_turn != player_index:
             self.selected_card = None
             self.selected_player_area = None
+            self.selected_cells.clear()
             return
 
         for i, rect in self.player_card_rects[player_index].items():
             if rect.collidepoint(pos):
-                if (
+                if self.game.logic.players[player_index].hand[i] is None or (
                     self.selected_card == i
                     and self.selected_player_area == player_index
                 ):
@@ -177,15 +209,36 @@ class GameUI:
                 x, y = pygame.mouse.get_pos()
                 area = self.event_position_area(x, y)
 
-                if area == "board":
+                if (
+                    area == "board"
+                    and self.selected_card is not None
+                    and self.selected_player_area is not None
+                ):
                     cell_x, cell_y = self.get_square_coordinates(x, y)
-                    self.game.selected_cells.append((cell_x, cell_y))
-                    if len(self.game.selected_cells) == 2:
-                        self.game.switch_colors()
+                    if (cell_x, cell_y) in self.selected_cells:
+                        self.selected_cells.remove((cell_x, cell_y))
+                        self.possible_switches = None
+
+                    if len(self.selected_cells) == 0 or (
+                        len(self.selected_cells) == 1
+                        and (cell_x, cell_y) not in self.possible_switches
+                    ):
+                        self.selected_cells.clear()
+                        self.selected_cells.append((cell_x, cell_y))
+                        possible_switches = self.game.possible_switches(
+                            (cell_x, cell_y), self.selected_card
+                        )
+                        self.possible_switches = possible_switches
+                    elif len(self.selected_cells) == 1:
+                        self.selected_cells.append((cell_x, cell_y))
+                        self.game.switch_colors(self.selected_cells, self.selected_card)
+                        self.selected_cells.clear()
+                        self.possible_switches = None
+                        self.selected_card = None
 
                 elif area == "player1" or area == "player2":
                     self.handle_card_click(area, (x, y))
-                    self.game.selected_move = self.selected_card
+                    self.selected_move = self.selected_card
         return True
 
     def main_loop(self):
