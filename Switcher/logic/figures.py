@@ -75,7 +75,7 @@ figures = {
         [2, 0, 0, 0, 2],
         [0, 1, 1, 1, 0],
         [0, 1, 0, 1, 0],
-        [2, 0, 0, 0, 2],
+        [2, 0, 2, 0, 2],
     ],
     "Cross": [
         [2, 2, 0, 2, 2],
@@ -121,11 +121,12 @@ figures = {
 
 
 class BoardFigure:
-    def __init__(self, name, x, y, color):
+    def __init__(self, name, x, y, color, variation):
         self.name = name
         self.x = x
         self.y = y
         self.color = color
+        self.cells = figure_cells(variation, x, y)
 
 
 figures_deck = []
@@ -176,6 +177,15 @@ def match_at_position(matrix, figure, x, y, color_number):
     return True
 
 
+def figure_cells(figure, x, y):
+    cells = []
+    for i in range(len(figure)):
+        for j in range(len(figure[0])):
+            if figure[i][j] == 1:
+                cells.append((x + i, y + j))
+    return cells
+
+
 def find_figure(matrix, figure_name, x, y, color_number):
     figure = figures[figure_name]
     variations = generate_variations(figure)
@@ -185,7 +195,7 @@ def find_figure(matrix, figure_name, x, y, color_number):
                 f"Figura {figure_name} encontrada en posición ({x}, {y}) con color {color_number}"
             )
             print(variation)
-            return BoardFigure(figure_name, x, y, color_number)
+            return BoardFigure(figure_name, x, y, color_number, variation)
     return None
 
 
@@ -202,7 +212,7 @@ def find_figures(matrix, color_number):
                         #    f"Figura {name} encontrada en posición ({x}, {y}) con color {color_number}"
                         # )
                         # print(variation)
-                        figure = BoardFigure(name, x, y, color_number)
+                        figure = BoardFigure(name, x, y, color_number, variation)
                         board_figures.append(figure)
     return board_figures
 

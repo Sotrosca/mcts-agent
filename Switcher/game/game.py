@@ -1,3 +1,4 @@
+from Switcher.logic.figures import BoardFigure
 from Switcher.logic.logic import Switcher
 from Switcher.player.player import Player
 from Switcher.player.player_move import PassMove, SwitchMove
@@ -36,5 +37,23 @@ class Game:
         player: Player = self.logic.players[player_idx]
         return player.figures_slots
 
+    def get_all_player_figure_names(self):
+        figures = []
+        for player in self.logic.players:
+            figures_slots = player.figures_slots
+            figures.extend(
+                list(map(lambda figure_name: figure_name, figures_slots.values()))
+            )
+        return figures
+
     def find_board_figures(self):
-        return self.logic.find_board_figures()
+        # We convert the cells in the board with the border to the cells without the border
+        figures_in_board_with_border = self.logic.find_board_figures()
+        for figure in figures_in_board_with_border:
+            figure: BoardFigure = figure
+            cells = []
+            for cell in figure.cells:
+                cell_x, cell_y = cell[0] - 1, cell[1] - 1  # We remove the border
+                cells.append((cell_x, cell_y))
+            figure.cells = cells
+        return figures_in_board_with_border

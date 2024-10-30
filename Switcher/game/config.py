@@ -1,6 +1,7 @@
 class Config:
     SCREEN_WIDTH, SCREEN_HEIGHT = 880, 680
     COLORS = [(255, 50, 50), (50, 255, 50), (50, 50, 255), (255, 255, 0)]
+    BOARD_FIGURE_COLOR_CHANGE = 2
     BACKGROUND_COLOR = (100, 130, 130)
     BOARD_BACKGROUND_COLOR = (40, 40, 40)
     CARD_COLOR = (255, 255, 255)
@@ -20,3 +21,12 @@ class Config:
     FIGURE_ON_BOARD_BACKGROUND_COLOR = (255, 210, 97)
     FIGURE_BACKGROUND_COLOR = (255, 255, 255)
     CELL_SIZE = 15
+
+    def board_figure_color(color):
+        new_color = []
+        for i in range(3):
+            new_value = color[i] // Config.BOARD_FIGURE_COLOR_CHANGE
+            if new_value < 0:
+                new_value = 0
+            new_color.append(new_value)
+        return tuple(new_color)

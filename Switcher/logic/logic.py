@@ -1,7 +1,7 @@
 import numpy as np
 
 from Switcher.logic.board import Board
-from Switcher.logic.figures import figures_deck, find_figure, find_figures
+from Switcher.logic.figures import BoardFigure, figures_deck, find_figure, find_figures
 from Switcher.logic.moves import SwitchMovementCard, moves_deck
 from Switcher.player.player import Player
 from Switcher.player.player_move import (
@@ -79,7 +79,7 @@ class Switcher:
         valid_move = self.board.switch_cells(cell_y, cell_x, cell2_y, cell2_x)
         return valid_move
 
-    def find_board_figures(self):
+    def find_board_figures(self) -> list[BoardFigure]:
         board_state_with_border = self.board.get_board_state_color(with_border=True)
         board_figures = []
         for color in range(1, self.color_quantity + 1):
