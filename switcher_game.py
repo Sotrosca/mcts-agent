@@ -1,326 +1,519 @@
+# Python
 import sys
 
 import pygame
 
-from Switcher.logic.board import Board
-from Switcher.logic.figures import find_figures
-from Switcher.logic.logic import Switcher
-
-players_qty = 2
-game = Switcher(players_qty)
-game.deal_figures()
-game.deal_moves()
-board: Board = game.board
-
-# Initialize Pygame
-pygame.init()
-
-# Screen dimensions
-SCREEN_WIDTH, SCREEN_HEIGHT = 880, 680
+from Switcher.game import Config, Game
+from Switcher.logic.figures import BoardFigure, figures
 
 
-# Colors
-COLORS = [(255, 50, 50), (50, 255, 50), (50, 50, 255), (255, 255, 0)]
-
-# Colores
-BACKGROUND_COLOR = (100, 130, 130)
-BOARD_BACKGROUND_COLOR = (40, 40, 40)
-CARD_COLOR = (255, 255, 255)
-BORDER_COLOR = (40, 40, 40)
-SELECTED_CELL_BORDER_COLOR = (210, 210, 210)
-
-# Dimensiones y posiciones de las áreas de las cartas
-CARD_WIDTH, CARD_HEIGHT = 140, 350
-CARDS_QTY = 3
-BOARD_SIZE = 320  # El tablero será un cuadrado de 400x400
-BOARD_POS = ((SCREEN_WIDTH - BOARD_SIZE) // 2, (SCREEN_HEIGHT - BOARD_SIZE) // 2)
-SQUARE_SIZE = BOARD_SIZE // board.size[0]
-MARGIN = 20  # Espacio adicional para evitar superposición
-
-# Create the screen
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-
-# Board setup
-
-selected_cells = []
-
-player1_card_rects = {}
-player2_card_rects = {}
-
-
-def draw_board(board_state):
-    # board background
-    background_rect = (BOARD_POS[0], BOARD_POS[1], BOARD_SIZE, BOARD_SIZE)
-    pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, background_rect)
-    board_image = [[COLORS[(cell.color - 1)] for cell in row] for row in board_state]
-    for y, row in enumerate(board_image):
-        for x, color in enumerate(row):
-            if (x, y) in selected_cells:
-                border_color = SELECTED_CELL_BORDER_COLOR
-            else:
-                border_color = BORDER_COLOR
-            square_rect = square_rect = (
-                BOARD_POS[0] + x * SQUARE_SIZE,
-                BOARD_POS[1] + y * SQUARE_SIZE,
-                SQUARE_SIZE,
-                SQUARE_SIZE,
-            )
-            pygame.draw.rect(screen, color, square_rect, border_radius=10)
-
-            # Dibujar el borde de la celda
-            pygame.draw.rect(screen, border_color, square_rect, 3, border_radius=10)
-
-
-def print_board(board_state):
-    for row in board_state:
-        row = ["*" if cell == -1 else str(cell) for cell in row]
-        print(" ".join(row))
-
-
-def switch_colors():
-    if len(selected_cells) == 2:
-        cell1_x, cell1_y = selected_cells[0]
-        cell2_x, cell2_y = selected_cells[1]
-        print(f"Switching {cell1_x}, {cell1_y} with {cell2_x}, {cell2_y}")
-        valid_move = game.board.switch_cells(cell1_y, cell1_x, cell2_y, cell2_x)
-        selected_cells.clear()
-        board_state_with_border = game.board.get_board_state_color(with_border=True)
-        # print_board(board_state_with_border)
-        # for color in range(1, board.color_quantity + 1):
-        #    find_figures(board_state_with_border, color)
-
-
-def draw_card_areas(num_players):
-    if num_players >= 1:
-        # Jugador 1
-        player1_pos = (
-            BOARD_POS[0] - CARD_WIDTH - MARGIN,
-            SCREEN_HEIGHT // 2 - CARD_HEIGHT // 2,
+class GameUI:
+    def __init__(self, game: Game):
+        self.game = game
+        pygame.init()
+        self.screen = pygame.display.set_mode(
+            (Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT)
         )
-        pygame.draw.rect(screen, CARD_COLOR, (*player1_pos, CARD_WIDTH, CARD_HEIGHT))
+        self.board_rect = pygame.Rect(
+            (Config.SCREEN_WIDTH - Config.BOARD_SIZE) // 2,
+            (Config.SCREEN_HEIGHT - Config.BOARD_SIZE) // 2,
+            Config.BOARD_SIZE,
+            Config.BOARD_SIZE,
+        )
+        self.player_card_rects = [{} for _ in range(game.players_qty)]
+        self.selected_card = None
+        self.selected_player_area = None
+        self.selected_figure_idx = None
+        self.selected_figure_area = None
+        self.selected_cells = []
+        self.possible_switches = None
+        self.board_figures: list[BoardFigure] = []
+
+        self.player1_hand_rect, self.player2_hand_rect = self.create_player_hand_rects()
+        self.pass_turn_button = pygame.Rect(
+            (Config.SCREEN_WIDTH - 100) // 2, Config.SCREEN_HEIGHT - 50, 100, 30
+        )
+        self.player1_figures_area_rect, self.player2_figures_area_rect = (
+            self.create_player_figures_area_rects()
+        )
+
+        self.player_figures_rect = [{} for _ in range(game.players_qty)]
+
+    def clean_selected(self):
+        self.selected_card = None
+        self.selected_player_area = None
+        self.selected_figure_idx = None
+        self.selected_figure_area = None
+        self.selected_cells.clear()
+        self.possible_switches = None
+
+    def create_player_hand_rects(self):
+        player1_rect = pygame.Rect(
+            self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
+            Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2,
+            Config.CARD_WIDTH,
+            Config.CARD_HEIGHT,
+        )
+        player2_rect = pygame.Rect(
+            self.board_rect.x + Config.BOARD_SIZE + Config.MARGIN,
+            Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2,
+            Config.CARD_WIDTH,
+            Config.CARD_HEIGHT,
+        )
+        return player1_rect, player2_rect
+
+    def create_player_figures_area_rects(self):
+        player1_figures_area_rect = pygame.Rect(
+            self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
+            self.player1_hand_rect.y - 160,
+            Config.CARD_WIDTH,
+            160,
+        )
+        player2_figures_area_rect = pygame.Rect(
+            self.board_rect.x + Config.BOARD_SIZE + Config.MARGIN,
+            self.player2_hand_rect.y - 160,
+            Config.CARD_WIDTH,
+            160,
+        )
+        return player1_figures_area_rect, player2_figures_area_rect
+
+    def cells_to_match_with_selected_figure(self):
+
+        if not self.is_figure_selected():
+            return []
+
+        figure_name_to_match = self.game.get_player_figures(self.selected_figure_area)[
+            self.selected_figure_idx
+        ]
+
+        return self.cells_to_match_with_figure(figure_name_to_match)
+
+    def cells_to_match_with_figure(self, figure_name):
+        figure_to_match_cells = [
+            cell
+            for figure in self.board_figures
+            if figure.name == figure_name
+            for cell in figure.cells
+        ]
+        return figure_to_match_cells
+
+    def get_board_image(self):
+        return [
+            [Config.COLORS[(cell.color - 1)] for cell in row]
+            for row in self.game.board.state
+        ]
+
+    def draw_board(self):
+        pygame.draw.rect(self.screen, Config.BOARD_BACKGROUND_COLOR, self.board_rect)
+        board_image = self.get_board_image()
+
+        all_player_figures = self.game.get_all_player_figure_names()
+
+        figure_to_match_cells = self.cells_to_match_with_selected_figure()
+
+        for y, row in enumerate(board_image):
+            for x, color in enumerate(row):
+                if len(figure_to_match_cells) > 0:
+                    if (y, x) in figure_to_match_cells:
+                        color = color
+                        border_color = Config.BORDER_COLOR
+                        border_radius = Config.BORDER_RADIUS
+                    else:
+                        color = Config.board_figure_color(color)
+                        border_color = Config.BORDER_COLOR
+                        border_radius = Config.BORDER_RADIUS
+
+                else:
+                    player_board_figure_cell = False
+                    for figure in self.board_figures:
+                        if (y, x) in figure.cells and figure.name in all_player_figures:
+                            player_board_figure_cell = True
+                            break
+
+                    color = (
+                        color
+                        if not player_board_figure_cell
+                        else Config.board_figure_color(color)
+                    )
+
+                    border_color = (
+                        Config.SELECTED_CELL_BORDER_COLOR
+                        if (x, y) in self.selected_cells or player_board_figure_cell
+                        else (
+                            Config.POSSIBLE_SWITCHES_BORDER_COLOR
+                            if self.possible_switches is not None
+                            and (x, y) in self.possible_switches
+                            else Config.BORDER_COLOR
+                        )
+                    )
+                    border_radius = (
+                        Config.SELECTED_CELL_BORDER_RADIUS
+                        if (x, y) in self.selected_cells
+                        or self.possible_switches is not None
+                        and (x, y) in self.possible_switches
+                        else Config.BORDER_RADIUS
+                    )
+
+                square_rect = pygame.Rect(
+                    self.board_rect.x
+                    + x * (Config.BOARD_SIZE // self.game.board.size[0]),
+                    self.board_rect.y
+                    + y * (Config.BOARD_SIZE // self.game.board.size[0]),
+                    Config.BOARD_SIZE // self.game.board.size[0],
+                    Config.BOARD_SIZE // self.game.board.size[0],
+                )
+                pygame.draw.rect(
+                    self.screen, color, square_rect, border_radius=border_radius
+                )
+                pygame.draw.rect(
+                    self.screen,
+                    border_color,
+                    square_rect,
+                    3,
+                    border_radius=border_radius,
+                )
+
+    def draw_card_area(self, player_index, pos):
         pygame.draw.rect(
-            screen, BORDER_COLOR, (*player1_pos, CARD_WIDTH, CARD_HEIGHT), 3
+            self.screen,
+            Config.CARD_COLOR,
+            (*pos, Config.CARD_WIDTH, Config.CARD_HEIGHT),
         )
-    if num_players >= 2:
-        # Jugador 2
-        player2_pos = (
-            BOARD_POS[0] + BOARD_SIZE + MARGIN,
-            SCREEN_HEIGHT // 2 - CARD_HEIGHT // 2,
-        )
-        pygame.draw.rect(screen, CARD_COLOR, (*player2_pos, CARD_WIDTH, CARD_HEIGHT))
         pygame.draw.rect(
-            screen, BORDER_COLOR, (*player2_pos, CARD_WIDTH, CARD_HEIGHT), 3
-        )
-    if num_players >= 3:
-        # Jugador 3
-        player3_pos = (
-            SCREEN_WIDTH // 2 - CARD_HEIGHT // 2,
-            BOARD_POS[1] - CARD_WIDTH - MARGIN,
-        )  # Invertir las dimensiones
-        pygame.draw.rect(screen, CARD_COLOR, (*player3_pos, CARD_HEIGHT, CARD_WIDTH))
-        pygame.draw.rect(
-            screen, BORDER_COLOR, (*player3_pos, CARD_HEIGHT, CARD_WIDTH), 3
-        )
-    if num_players == 4:
-        # Jugador 4
-        player4_pos = (
-            SCREEN_WIDTH // 2 - CARD_HEIGHT // 2,
-            BOARD_POS[1] + BOARD_SIZE + MARGIN,
-        )  # Invertir las dimensiones
-        pygame.draw.rect(screen, CARD_COLOR, (*player4_pos, CARD_HEIGHT, CARD_WIDTH))
-        pygame.draw.rect(
-            screen, BORDER_COLOR, (*player4_pos, CARD_HEIGHT, CARD_WIDTH), 3
+            self.screen,
+            Config.BORDER_COLOR,
+            (*pos, Config.CARD_WIDTH, Config.CARD_HEIGHT),
+            3,
         )
 
+    def draw_card_areas(self):
+        positions = [
+            (
+                self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
+                Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2,
+            ),
+            (
+                self.board_rect.x + Config.BOARD_SIZE + Config.MARGIN,
+                Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2,
+            ),
+        ]
+        for i in range(self.game.players_qty):
+            self.draw_card_area(i, positions[i])
 
-def draw_cards(
-    num_players,
-    player1_card_rects,
-    player2_card_rects,
-    selected_card,
-    selected_player_area,
-):
+    def draw_cards(self):
+        for player_index in range(self.game.players_qty):
+            player_cards = self.game.logic.players[player_index].hand
+            for i, card in player_cards.items():
+                card_pos = self.get_card_position(player_index, i)
+                name = card.name if card is not None else "None"
+                card_text = pygame.font.SysFont("Arial", 16).render(
+                    name, True, (0, 0, 0)
+                )
+                if i not in self.player_card_rects[player_index]:
+                    self.player_card_rects[player_index][i] = pygame.Rect(
+                        *card_pos, Config.CARD_WIDTH, 100
+                    )
+                player_card_rect = self.player_card_rects[player_index][i]
+                border_color = (
+                    (255, 0, 0)
+                    if i == self.selected_card
+                    and self.selected_player_area == player_index
+                    and player_index == self.game.logic.player_turn
+                    else Config.BORDER_COLOR
+                )
 
-    if num_players >= 1:
-        player1_cards = game.players[0].hand
-        for i, card in player1_cards.items():
-            card_pos = (
-                BOARD_POS[0] - CARD_WIDTH - MARGIN,
-                SCREEN_HEIGHT // 2 - CARD_HEIGHT // 2 + i * 120,
+                color = (
+                    Config.EMPTY_CARD_COLOR
+                    if card is None
+                    else (
+                        Config.CURRENT_PLAYER_CARD_COLOR
+                        if player_index == self.game.logic.player_turn
+                        else Config.CARD_COLOR
+                    )
+                )
+
+                pygame.draw.rect(self.screen, color, player_card_rect)
+                pygame.draw.rect(self.screen, border_color, player_card_rect, 3)
+                self.screen.blit(card_text, (card_pos[0] + 10, card_pos[1] + 10))
+
+    def draw_figure(self, screen, figure, top_left_x, top_left_y):
+        for i, row in enumerate(figure):
+            for j, cell in enumerate(row):
+                if cell == 1:
+                    pygame.draw.rect(
+                        screen,
+                        Config.FIGURE_COLOR,
+                        pygame.Rect(
+                            top_left_x + j * Config.CELL_SIZE,
+                            top_left_y + i * Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                        ),
+                        border_radius=2,
+                    )
+                    # draw border
+                    pygame.draw.rect(
+                        screen,
+                        (40, 40, 40),
+                        pygame.Rect(
+                            top_left_x + j * Config.CELL_SIZE,
+                            top_left_y + i * Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                            Config.CELL_SIZE,
+                        ),
+                        1,
+                        border_radius=2,
+                    )
+
+    def figure_in_board(self, figure_name):
+        for figure in self.board_figures:
+            if figure.name == figure_name:
+                return True
+        return False
+
+    def draw_player_figures(self):
+        pygame.draw.rect(self.screen, (200, 200, 200), self.player1_figures_area_rect)
+        pygame.draw.rect(self.screen, (200, 200, 200), self.player2_figures_area_rect)
+
+        # Draw player 1 figures
+        player1_figures = self.game.get_player_figures(0)
+
+        for slot_idx, figure_name in player1_figures.items():
+            x = self.player1_figures_area_rect.x + (slot_idx % 2) * (
+                self.player1_figures_area_rect.width // 2
             )
-            card_text = pygame.font.SysFont("Arial", 16).render(
-                card.name, True, (0, 0, 0)
+            y = self.player1_figures_area_rect.y + (slot_idx // 2) * (
+                self.player1_figures_area_rect.height // 2
             )
 
-            if i not in player1_card_rects:
-                player1_card_rects[i] = pygame.Rect(*card_pos, CARD_WIDTH, 100)
+            if slot_idx not in self.player_figures_rect[0]:
+                self.player_figures_rect[0][slot_idx] = pygame.Rect(
+                    x,
+                    y,
+                    self.player1_figures_area_rect.width // 2,
+                    self.player1_figures_area_rect.height // 2,
+                )
+            figure_rect = self.player_figures_rect[0][slot_idx]
 
-            player_card_rect = player1_card_rects[i]
+            figure_background_color = (
+                Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
+                if self.figure_in_board(figure_name)
+                else Config.FIGURE_BACKGROUND_COLOR
+            )
+            pygame.draw.rect(self.screen, figure_background_color, figure_rect)
+            pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
+            figure_matrix = figures.get(figure_name)
+            if figure_matrix:
+                figure_width = len(figure_matrix[0]) * Config.CELL_SIZE
+                figure_height = len(figure_matrix) * Config.CELL_SIZE
+                offset_x = (figure_rect.width - figure_width) // 2
+                offset_y = (figure_rect.height - figure_height) // 2
+                self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
 
-            border_color = (
-                (255, 0, 0)
-                if i == selected_card
-                and game.player_turn == 0
-                and selected_player_area == 0
-                else BORDER_COLOR
+        # Draw player 2 figures
+        player2_figures = self.game.get_player_figures(1)
+        for slot_idx, figure_name in player2_figures.items():
+            x = self.player2_figures_area_rect.x + (slot_idx % 2) * (
+                self.player2_figures_area_rect.width // 2
+            )
+            y = self.player2_figures_area_rect.y + (slot_idx // 2) * (
+                self.player2_figures_area_rect.height // 2
+            )
+            if slot_idx not in self.player_figures_rect[1]:
+                self.player_figures_rect[1][slot_idx] = pygame.Rect(
+                    x,
+                    y,
+                    self.player2_figures_area_rect.width // 2,
+                    self.player2_figures_area_rect.height // 2,
+                )
+            figure_rect = self.player_figures_rect[1][slot_idx]
+
+            figure_background_color = (
+                Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
+                if self.figure_in_board(figure_name)
+                else Config.FIGURE_BACKGROUND_COLOR
             )
 
-            pygame.draw.rect(screen, CARD_COLOR, player_card_rect)
-            pygame.draw.rect(screen, border_color, player_card_rect, 3)
-            screen.blit(card_text, (card_pos[0] + 10, card_pos[1] + 10))
-    if num_players >= 2:
-        player2_cards = game.players[0].hand
-        for i, card in player2_cards.items():
-            card_pos = (
-                BOARD_POS[0] + BOARD_SIZE + MARGIN,
-                SCREEN_HEIGHT // 2 - CARD_HEIGHT // 2 + i * 120,
-            )
-            card_text = pygame.font.SysFont("Arial", 16).render(
-                card.name, True, (0, 0, 0)
-            )
-            if i not in player2_card_rects:
-                player2_card_rects[i] = pygame.Rect(*card_pos, CARD_WIDTH, 100)
+            pygame.draw.rect(self.screen, figure_background_color, figure_rect)
+            pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
+            figure_matrix = figures.get(figure_name)
+            if figure_matrix:
+                figure_width = len(figure_matrix[0]) * Config.CELL_SIZE
+                figure_height = len(figure_matrix) * Config.CELL_SIZE
+                offset_x = (figure_rect.width - figure_width) // 2
+                offset_y = (figure_rect.height - figure_height) // 2
+                self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
 
-            player_card_rect = player2_card_rects[i]
-
-            border_color = (
-                (255, 0, 0)
-                if i == selected_card
-                and game.player_turn == 1
-                and selected_player_area == 1
-                else BORDER_COLOR
+    def get_card_position(self, player_index, card_index):
+        if player_index == 0:
+            return (
+                self.board_rect.x - Config.CARD_WIDTH - Config.MARGIN,
+                Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2 + card_index * 120,
+            )
+        elif player_index == 1:
+            return (
+                self.board_rect.x + Config.BOARD_SIZE + Config.MARGIN,
+                Config.SCREEN_HEIGHT // 2 - Config.CARD_HEIGHT // 2 + card_index * 120,
             )
 
-            pygame.draw.rect(screen, CARD_COLOR, player_card_rect)
-            pygame.draw.rect(screen, border_color, player_card_rect, 3)
-            screen.blit(card_text, (card_pos[0] + 10, card_pos[1] + 10))
-    if num_players >= 3:
-        for i in range(CARDS_QTY):
-            card_pos = (
-                SCREEN_WIDTH // 2 - CARD_HEIGHT // 2 + i * 120,
-                BOARD_POS[1] - CARD_WIDTH - MARGIN,
+    def get_square_coordinates(self, mouse_x, mouse_y):
+        if self.board_rect.collidepoint(mouse_x, mouse_y):
+            col = (mouse_x - self.board_rect.x) // (
+                Config.BOARD_SIZE // self.game.board.size[0]
             )
-            pygame.draw.rect(screen, CARD_COLOR, (*card_pos, 100, CARD_WIDTH))
-            pygame.draw.rect(screen, BORDER_COLOR, (*card_pos, 100, CARD_WIDTH), 3)
-    if num_players == 4:
-        for i in range(CARDS_QTY):
-            card_pos = (
-                SCREEN_WIDTH // 2 - CARD_HEIGHT // 2 + i * 120,
-                BOARD_POS[1] + BOARD_SIZE + MARGIN,
+            row = (mouse_y - self.board_rect.y) // (
+                Config.BOARD_SIZE // self.game.board.size[0]
             )
-            pygame.draw.rect(screen, CARD_COLOR, (*card_pos, 100, CARD_WIDTH))
-            pygame.draw.rect(screen, BORDER_COLOR, (*card_pos, 100, CARD_WIDTH), 3)
+            return col, row
+        return None
 
+    def event_position_area(self, x, y):
+        if self.board_rect.collidepoint(x, y):
+            return "board"
+        if self.player1_hand_rect.collidepoint(x, y):
+            return "player1_hand"
+        if self.player2_hand_rect.collidepoint(x, y):
+            return "player2_hand"
+        if self.player1_figures_area_rect.collidepoint(x, y):
+            return "player1_figures_area"
+        if self.player2_figures_area_rect.collidepoint(x, y):
+            return "player2_figures_area"
+        return None
 
-def get_square_coordinates(mouse_x, mouse_y):
-    if (
-        BOARD_POS[0] <= mouse_x <= BOARD_POS[0] + BOARD_SIZE
-        and BOARD_POS[1] <= mouse_y <= BOARD_POS[1] + BOARD_SIZE
-    ):
-        col = (mouse_x - BOARD_POS[0]) // SQUARE_SIZE
-        row = (mouse_y - BOARD_POS[1]) // SQUARE_SIZE
-        return col, row
-    return None
+    def handle_card_click(self, area, pos):
+        player_index = 0 if area == "player1_hand" else 1
 
+        if self.game.logic.player_turn != player_index:
+            self.selected_card = None
+            self.selected_player_area = None
+            self.selected_cells.clear()
+            return
 
-def event_position_area(x, y):
-    if (
-        BOARD_POS[0] <= x <= BOARD_POS[0] + BOARD_SIZE
-        and BOARD_POS[1] <= y <= BOARD_POS[1] + BOARD_SIZE
-    ):
-        return "board"
-    if (
-        BOARD_POS[0] - CARD_WIDTH - MARGIN <= x <= BOARD_POS[0]
-        and SCREEN_HEIGHT // 2 - CARD_HEIGHT // 2
-        <= y
-        <= SCREEN_HEIGHT // 2 + CARD_HEIGHT // 2
-    ):
-        return "player1"
-    if (
-        BOARD_POS[0] + BOARD_SIZE
-        <= x
-        <= BOARD_POS[0] + BOARD_SIZE + CARD_WIDTH + MARGIN
-        and SCREEN_HEIGHT // 2 - CARD_HEIGHT // 2
-        <= y
-        <= SCREEN_HEIGHT // 2 + CARD_HEIGHT // 2
-    ):
-        return "player2"
-    return None
-
-
-def handle_card_click(
-    area,
-    pos,
-    player1_card_rects,
-    player2_card_rects,
-    selected_card,
-    selected_player_area,
-):
-    if area == "player1":
-        for i, rect in player1_card_rects.items():
+        for i, rect in self.player_card_rects[player_index].items():
             if rect.collidepoint(pos):
-                selected_card = i
-                selected_player_area = 0
+                if self.game.logic.players[player_index].hand[i] is None or (
+                    self.selected_card == i
+                    and self.selected_player_area == player_index
+                ):
+                    self.selected_card = None
+                    self.selected_player_area = None
+                else:
+                    self.selected_card = i
+                    self.selected_player_area = player_index
+                break
+        return self.selected_card, self.selected_player_area
 
-    elif area == "player2":
-        for i, rect in player2_card_rects.items():
+    def handle_figure_click(self, area, pos):
+        player_index = 0 if area == "player1_figures_area" else 1
+        player_figures = self.game.get_player_figures(player_index)
+        for i, rect in self.player_figures_rect[player_index].items():
             if rect.collidepoint(pos):
-                selected_card = i
-                selected_player_area = 1
+                if (
+                    self.game.logic.players[player_index].figures_slots[i] is None
+                    or (
+                        self.selected_figure_idx == i
+                        and self.selected_figure_area == player_index
+                    )
+                    or not self.figure_in_board(player_figures[i])
+                ):
+                    self.selected_figure_idx = None
+                    self.selected_figure_area = None
+                else:
+                    self.selected_figure_idx = i
+                    self.selected_figure_area = player_index
+                break
+        return self.selected_figure_idx, self.selected_figure_area
 
-    return selected_card, selected_player_area
+    def draw_pass_turn_button(self):
+        pygame.draw.rect(self.screen, (200, 200, 200), self.pass_turn_button)
+        font = pygame.font.SysFont("Arial", 16)
+        text = font.render("Pass Turn", True, (0, 0, 0))
+        self.screen.blit(
+            text, (self.pass_turn_button.x + 10, self.pass_turn_button.y + 5)
+        )
 
-
-def main():
-    selected_card = None
-    selected_player_area = None
-
-    running = True
-    while running:
+    def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                return False
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = pygame.mouse.get_pos()
-                area = event_position_area(x, y)
-                print(area)
-                if area == "board":
-                    cell_x, cell_y = get_square_coordinates(x, y)
-                    selected_cells.append((cell_x, cell_y))
-                    if len(selected_cells) == 2:
-                        switch_colors()
-                if area == "player1" or area == "player2":
-                    selected_card, selected_player_area = handle_card_click(
-                        area,
-                        (x, y),
-                        player1_card_rects,
-                        player2_card_rects,
-                        selected_card,
-                        selected_player_area,
-                    )
-                else:
-                    selected_card = None
-                    selected_player_area = None
+                area = self.event_position_area(x, y)
 
-        screen.fill(BACKGROUND_COLOR)
-        draw_board(board.state)
+                if self.pass_turn_button.collidepoint(x, y):
+                    self.game.pass_turn()
+                    self.clean_selected()
+                elif area == "board" and self.is_figure_selected():
+                    cell_x, cell_y = self.get_square_coordinates(x, y)
+                    figure_to_match_cells = self.cells_to_match_with_selected_figure()
+                    if (cell_y, cell_x) in figure_to_match_cells:
+                        print("Figure selected")
+                        figure_color = self.game.board.state[cell_y][cell_x].color
+                        print(figure_color)
+                elif (
+                    area == "board"
+                    and self.selected_card is not None
+                    and self.selected_player_area is not None
+                ):
+                    cell_x, cell_y = self.get_square_coordinates(x, y)
 
-        # Dibujar las cartas del jugador y del adversario
-        draw_card_areas(players_qty)
+                    if (cell_x, cell_y) in self.selected_cells:
+                        self.selected_cells.remove((cell_x, cell_y))
+                        self.possible_switches = None
 
-        draw_cards(
-            players_qty,
-            player1_card_rects,
-            player2_card_rects,
-            selected_card,
-            selected_player_area,
+                    if len(self.selected_cells) == 0 or (
+                        len(self.selected_cells) == 1
+                        and (cell_x, cell_y) not in self.possible_switches
+                    ):
+                        self.selected_cells.clear()
+                        self.selected_cells.append((cell_x, cell_y))
+                        possible_switches = self.game.possible_switches(
+                            (cell_x, cell_y), self.selected_card
+                        )
+                        self.possible_switches = possible_switches
+                    elif len(self.selected_cells) == 1:
+                        self.selected_cells.append((cell_x, cell_y))
+                        self.game.switch_colors(self.selected_cells, self.selected_card)
+                        self.board_figures = self.game.find_board_figures()
+                        self.selected_cells.clear()
+                        self.possible_switches = None
+                        self.selected_card = None
+
+                elif area == "player1_hand" or area == "player2_hand":
+                    self.handle_card_click(area, (x, y))
+                    self.selected_move = self.selected_card
+
+                elif area == "player1_figures_area" or area == "player2_figures_area":
+                    self.handle_figure_click(area, (x, y))
+
+        return True
+
+    def is_figure_selected(self):
+        return (
+            self.selected_figure_idx is not None
+            and self.selected_figure_area is not None
         )
 
-        pygame.display.flip()
+    def main_loop(self):
+        running = True
 
-    pygame.quit()
-    sys.exit()
+        self.board_figures = game.find_board_figures()
+        for figure in self.board_figures:
+            print(figure.name, figure.x, figure.y, figure.color, figure.cells)
+        while running:
+            running = self.handle_events()
+            self.screen.fill(Config.BACKGROUND_COLOR)
+            self.draw_board()
+            self.draw_card_areas()
+            self.draw_cards()
+            self.draw_pass_turn_button()
+            self.draw_player_figures()
+            pygame.display.flip()
+        pygame.quit()
+        sys.exit()
 
 
 if __name__ == "__main__":
-    main()
+    game = Game()
+    ui = GameUI(game)
+    ui.main_loop()
