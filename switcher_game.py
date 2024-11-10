@@ -5,7 +5,6 @@ import pygame
 
 from Switcher.game import Config, Game
 from Switcher.logic.figures import BoardFigure, figures
-from Switcher.player.player_move import MatchFigureMove
 
 
 class GameUI:
