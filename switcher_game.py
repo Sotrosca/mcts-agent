@@ -278,8 +278,10 @@ class GameUI:
 
         # Draw player 1 figures
         player1_figures = self.game.get_player_figures(0)
+        player1_banned_figures = self.game.get_banned_player_figures(0)
 
         for slot_idx, figure_name in player1_figures.items():
+            is_banned = player1_banned_figures[slot_idx]
             x = self.player1_figures_area_rect.x + (slot_idx % 2) * (
                 self.player1_figures_area_rect.width // 2
             )
@@ -310,10 +312,21 @@ class GameUI:
                 offset_x = (figure_rect.width - figure_width) // 2
                 offset_y = (figure_rect.height - figure_height) // 2
                 self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
+            if is_banned:
+                # Draw a red cross over the figure
+                pygame.draw.line(
+                    self.screen,
+                    (255, 0, 0),
+                    (x, y),
+                    (x + figure_rect.width, y + figure_rect.height),
+                    3,
+                )
 
         # Draw player 2 figures
         player2_figures = self.game.get_player_figures(1)
+        player2_banned_figures = self.game.get_banned_player_figures(1)
         for slot_idx, figure_name in player2_figures.items():
+            is_banned = player2_banned_figures[slot_idx]
             x = self.player2_figures_area_rect.x + (slot_idx % 2) * (
                 self.player2_figures_area_rect.width // 2
             )
@@ -344,6 +357,15 @@ class GameUI:
                 offset_x = (figure_rect.width - figure_width) // 2
                 offset_y = (figure_rect.height - figure_height) // 2
                 self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
+            if is_banned:
+                # Draw a red cross over the figure
+                pygame.draw.line(
+                    self.screen,
+                    (255, 0, 0),
+                    (x, y),
+                    (x + figure_rect.width, y + figure_rect.height),
+                    3,
+                )
 
     def get_card_position(self, player_index, card_index):
         if player_index == 0:
@@ -415,6 +437,11 @@ class GameUI:
                         self.selected_figure_idx == i
                         and self.selected_figure_area == player_index
                     )
+                    or (
+                        self.game.player_is_blocked(player_index)
+                        and player_index != self.game.logic.player_turn
+                    )
+                    or (self.game.get_banned_player_figures(player_index)[i])
                     or not self.figure_in_board(player_figures[i])
                 ):
                     self.selected_figure_idx = None
@@ -455,6 +482,8 @@ class GameUI:
                             cell_x,
                             self.board_figures,
                         )
+                        self.clean_selected()
+                        print("Figure matched")
                 elif (
                     area == "board"
                     and self.selected_card is not None
@@ -480,9 +509,7 @@ class GameUI:
                         self.selected_cells.append((cell_x, cell_y))
                         self.game.switch_colors(self.selected_cells, self.selected_card)
                         self.board_figures = self.game.find_board_figures()
-                        self.selected_cells.clear()
-                        self.possible_switches = None
-                        self.selected_card = None
+                        self.clean_selected()
 
                 elif area == "player1_hand" or area == "player2_hand":
                     self.handle_card_click(area, (x, y))

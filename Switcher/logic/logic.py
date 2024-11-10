@@ -86,9 +86,8 @@ class Switcher:
             board_figures.extend(find_figures(board_state_with_border, color))
         return board_figures
 
-    def valid_figure(self, figure_name, x, y, figure_color):
+    def valid_board_figure(self, figure_name, x, y, figure_color):
         board_state_with_border = self.board.get_board_state_color(with_border=True)
-        # x, y = x + 1, y + 1
         figure = find_figure(board_state_with_border, figure_name, x, y, figure_color)
         return figure is not None
 
@@ -109,7 +108,8 @@ class Switcher:
         self.turn += 1
         print(f"Player {self.current_player.player_id} turn")
 
-    def player_switch(self, player: Player, player_move: SwitchMove):
+    def player_switch(self, player_move: SwitchMove):
+        player = self.current_player
         move_card = player.play_move_card(player_move.move_card_slot)
         if not (player_move.steps_x, player_move.steps_y) in move_card.moves:
             raise ValueError("Invalid move")
@@ -121,28 +121,64 @@ class Switcher:
         )
         self.moves_discard.append(move_card)
 
-    def player_match_figure(self, player: Player, player_move: MatchFigureMove):
-        figure_player: Player = self.players[player_move.player_id]
-        figure_name = figure_player.show_figure(player_move.player_figure_slot)
+    def check_figure_board_move_is_valid(self, player_move: MatchFigureMove):
+        player: Player = self.players[player_move.player_id]
+        figure_name = player.show_figure(player_move.player_figure_slot)
 
         figure_x, figure_y, figure_color = (
             player_move.figure_board_x,
             player_move.figure_board_y,
             player_move.figure_board_color,
         )
-        valid_figure = self.valid_figure(figure_name, figure_x, figure_y, figure_color)
+        valid_board_figure = self.valid_board_figure(
+            figure_name, figure_x, figure_y, figure_color
+        )
 
-        if not valid_figure:
+        if not valid_board_figure:
             raise ValueError("Invalid figure")
 
-        print(
-            f"Player {player.player_id} matches figure {figure_name} from player {figure_player.player_id} slot {player_move.player_figure_slot}"
-        )
-        player.play_figure(player_move.player_figure_slot)
-        self.last_color_played = figure_color
+    def play_current_player_figure(self, player_move: MatchFigureMove):
+        player = self.current_player
+        self.check_figure_board_move_is_valid(player_move)
 
-        if len(player.figures_deck) > 0:
-            player.draw_figure()
+        print(
+            f"Player {player.player_id} matches his figure {player_move.figure_name} from slot {player_move.player_figure_slot}"
+        )
+
+        player.play_figure(player_move.player_figure_slot)
+        self.last_color_played = player_move.figure_board_color
+
+        print(f"Total figures left: {player.total_figures_slots()}")
+
+        if player.total_figures_slots() == 0:
+            player.enable_player()
+
+        if player.is_blocked and player.total_figures_slots() == 1:
+            player.enable_all_figures()
+
+        if not player.is_blocked and len(player.figures_deck) > 0:
+            player.draw_figures_until_full()
+
+    def play_opp_player_figure(self, player_move: MatchFigureMove):
+        player: Player = self.players[player_move.player_id]
+
+        if player.is_blocked:
+            raise ValueError("Player is blocked")
+
+        if player.total_figures_slots() <= 1:
+            raise ValueError("Player has only one figure left")
+
+        self.check_figure_board_move_is_valid(player_move)
+        player.ban_figure(player_move.player_figure_slot)
+        self.last_color_played = player_move.figure_board_color
+
+    def player_match_figure(self, player_move: MatchFigureMove):
+        player = self.current_player
+        figure_player: Player = self.players[player_move.player_id]
+        if figure_player.player_id == player.player_id:
+            self.play_current_player_figure(player_move)
+        else:
+            self.play_opp_player_figure(player_move)
 
     def check_player_win(self, player: Player):
         return len(player.figures_deck) == 0 and len(player.total_figures_slots()) == 0
@@ -165,9 +201,9 @@ class Switcher:
         if player_move.type == "Pass":
             self.player_pass()
         elif player_move.type == "Switch":
-            self.player_switch(self.current_player, player_move)
+            self.player_switch(player_move)
         elif player_move.type == "Match figure":
-            self.player_match_figure(self.current_player, player_move)
+            self.player_match_figure(player_move)
         else:
             raise ValueError("Invalid move type")
 

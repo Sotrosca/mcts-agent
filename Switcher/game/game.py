@@ -37,6 +37,14 @@ class Game:
         player: Player = self.logic.players[player_idx]
         return player.figures_slots
 
+    def get_banned_player_figures(self, player_idx):
+        player: Player = self.logic.players[player_idx]
+        return player.figures_blocked
+
+    def player_is_blocked(self, player_idx):
+        player: Player = self.logic.players[player_idx]
+        return player.is_blocked
+
     def get_all_player_figure_names(self):
         figures = []
         for player in self.logic.players:
