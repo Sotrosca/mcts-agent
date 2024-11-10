@@ -5,6 +5,7 @@ import pygame
 
 from Switcher.game import Config, Game
 from Switcher.logic.figures import BoardFigure, figures
+from Switcher.player.player_move import MatchFigureMove
 
 
 class GameUI:
@@ -447,9 +448,13 @@ class GameUI:
                     cell_x, cell_y = self.get_square_coordinates(x, y)
                     figure_to_match_cells = self.cells_to_match_with_selected_figure()
                     if (cell_y, cell_x) in figure_to_match_cells:
-                        print("Figure selected")
-                        figure_color = self.game.board.state[cell_y][cell_x].color
-                        print(figure_color)
+                        game.match_figure(
+                            self.selected_figure_area,
+                            self.selected_figure_idx,
+                            cell_y,
+                            cell_x,
+                            self.board_figures,
+                        )
                 elif (
                     area == "board"
                     and self.selected_card is not None
@@ -498,8 +503,6 @@ class GameUI:
         running = True
 
         self.board_figures = game.find_board_figures()
-        for figure in self.board_figures:
-            print(figure.name, figure.x, figure.y, figure.color, figure.cells)
         while running:
             running = self.handle_events()
             self.screen.fill(Config.BACKGROUND_COLOR)

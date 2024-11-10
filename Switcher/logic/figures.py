@@ -128,6 +128,9 @@ class BoardFigure:
         self.color = color
         self.cells = figure_cells(variation, x, y)
 
+    def __str__(self):
+        return f"Figure {self.name} at position ({self.x}, {self.y}) with color {self.color}"
+
 
 figures_deck = []
 

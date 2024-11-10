@@ -47,16 +47,18 @@ class MatchFigureMove(PlayerMove):
     def __init__(
         self,
         figure_name,
-        figure_board_position,
+        figure_board_x,
+        figure_board_y,
         figure_board_color,
         player_id,
         player_figure_slot,
     ):
         super().__init__(
             "Match figure",
-            figure_name,
-            figure_board_position,
-            figure_board_color,
-            player_id,
-            player_figure_slot,
+            figure_name=figure_name,
+            figure_board_x=figure_board_x,
+            figure_board_y=figure_board_y,
+            figure_board_color=figure_board_color,
+            player_id=player_id,
+            player_figure_slot=player_figure_slot,
         )

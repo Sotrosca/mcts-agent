@@ -88,6 +88,7 @@ class Switcher:
 
     def valid_figure(self, figure_name, x, y, figure_color):
         board_state_with_border = self.board.get_board_state_color(with_border=True)
+        # x, y = x + 1, y + 1
         figure = find_figure(board_state_with_border, figure_name, x, y, figure_color)
         return figure is not None
 
@@ -101,9 +102,12 @@ class Switcher:
             )
             self.current_player.draw_move_card(move_card[0])
             hand_size += 1
+            print(f"Player {self.current_player.player_id} draws a move card")
 
         self.player_turn = (self.player_turn + 1) % self.players_quantity
         self.current_player = self.players[self.player_turn]
+        self.turn += 1
+        print(f"Player {self.current_player.player_id} turn")
 
     def player_switch(self, player: Player, player_move: SwitchMove):
         move_card = player.play_move_card(player_move.move_card_slot)
@@ -118,7 +122,9 @@ class Switcher:
         self.moves_discard.append(move_card)
 
     def player_match_figure(self, player: Player, player_move: MatchFigureMove):
-        figure_name = player.show_figure(player_move.move_card_slot)
+        figure_player: Player = self.players[player_move.player_id]
+        figure_name = figure_player.show_figure(player_move.player_figure_slot)
+
         figure_x, figure_y, figure_color = (
             player_move.figure_board_x,
             player_move.figure_board_y,
@@ -129,21 +135,14 @@ class Switcher:
         if not valid_figure:
             raise ValueError("Invalid figure")
 
+        print(
+            f"Player {player.player_id} matches figure {figure_name} from player {figure_player.player_id} slot {player_move.player_figure_slot}"
+        )
         player.play_figure(player_move.player_figure_slot)
         self.last_color_played = figure_color
 
         if len(player.figures_deck) > 0:
             player.draw_figure()
-
-    def do_move(self, player_move: PlayerMove):
-        if player_move.type == "Pass":
-            self.player_pass()
-        elif player_move.type == "Switch":
-            self.player_switch(self.current_player, player_move)
-        elif player_move.type == "Match figure":
-            self.player_match_figure(self.current_player, player_move)
-        else:
-            raise ValueError("Invalid move type")
 
     def check_player_win(self, player: Player):
         return len(player.figures_deck) == 0 and len(player.total_figures_slots()) == 0
@@ -161,6 +160,16 @@ class Switcher:
             ):
                 valid_moves.append(move)
         return valid_moves
+
+    def do_move(self, player_move: PlayerMove):
+        if player_move.type == "Pass":
+            self.player_pass()
+        elif player_move.type == "Switch":
+            self.player_switch(self.current_player, player_move)
+        elif player_move.type == "Match figure":
+            self.player_match_figure(self.current_player, player_move)
+        else:
+            raise ValueError("Invalid move type")
 
 
 if __name__ == "__main__":

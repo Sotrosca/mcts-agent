@@ -1,7 +1,7 @@
 from Switcher.logic.figures import BoardFigure
 from Switcher.logic.logic import Switcher
 from Switcher.player.player import Player
-from Switcher.player.player_move import PassMove, SwitchMove
+from Switcher.player.player_move import MatchFigureMove, PassMove, SwitchMove
 
 
 class Game:
@@ -57,3 +57,22 @@ class Game:
                 cells.append((cell_x, cell_y))
             figure.cells = cells
         return figures_in_board_with_border
+
+    def figure_cell(self, x, y, board_figures) -> BoardFigure:
+        for figure in board_figures:
+            if (x, y) in figure.cells:
+                return figure
+        return None
+
+    def match_figure(self, player_idx, figure_idx, x, y, board_figures):
+        figure = self.figure_cell(x, y, board_figures)
+
+        move = MatchFigureMove(
+            figure_name=figure.name,
+            figure_board_x=figure.x,
+            figure_board_y=figure.y,
+            figure_board_color=figure.color,
+            player_id=player_idx,
+            player_figure_slot=figure_idx,
+        )
+        self.logic.do_move(move)
