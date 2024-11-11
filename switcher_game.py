@@ -93,6 +93,7 @@ class GameUI:
             cell
             for figure in self.board_figures
             if figure.name == figure_name
+            and figure.color != self.game.last_color_played()
             for cell in figure.cells
         ]
         return figure_to_match_cells
@@ -111,6 +112,8 @@ class GameUI:
 
         figure_to_match_cells = self.cells_to_match_with_selected_figure()
 
+        playable_board_figures = self.get_playable_board_figures()
+
         for y, row in enumerate(board_image):
             for x, color in enumerate(row):
                 if len(figure_to_match_cells) > 0:
@@ -125,7 +128,7 @@ class GameUI:
 
                 else:
                     player_board_figure_cell = False
-                    for figure in self.board_figures:
+                    for figure in playable_board_figures:
                         if (y, x) in figure.cells and figure.name in all_player_figures:
                             player_board_figure_cell = True
                             break
@@ -271,6 +274,26 @@ class GameUI:
                 return True
         return False
 
+    def playable_figure_in_board(self, figure_name):
+        last_color_played = self.game.last_color_played()
+        for figure in self.board_figures:
+            if figure.name == figure_name and last_color_played != figure.color:
+                return True
+        return False
+
+    def get_playable_board_figures(self):
+        last_color_played = self.game.last_color_played()
+        return [
+            figure for figure in self.board_figures if last_color_played != figure.color
+        ]
+
+    def figure_board_colors(self, figure_name):
+        colors = []
+        for figure in self.board_figures:
+            if figure.name == figure_name:
+                colors.append(figure.color)
+        return colors
+
     def draw_player_figures(self):
         pygame.draw.rect(self.screen, (200, 200, 200), self.player1_figures_area_rect)
         pygame.draw.rect(self.screen, (200, 200, 200), self.player2_figures_area_rect)
@@ -299,7 +322,7 @@ class GameUI:
 
             figure_background_color = (
                 Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
-                if self.figure_in_board(figure_name)
+                if self.playable_figure_in_board(figure_name)
                 else Config.FIGURE_BACKGROUND_COLOR
             )
             pygame.draw.rect(self.screen, figure_background_color, figure_rect)
@@ -343,7 +366,7 @@ class GameUI:
 
             figure_background_color = (
                 Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
-                if self.figure_in_board(figure_name)
+                if self.playable_figure_in_board(figure_name)
                 else Config.FIGURE_BACKGROUND_COLOR
             )
 
@@ -441,7 +464,7 @@ class GameUI:
                         and player_index != self.game.logic.player_turn
                     )
                     or (self.game.get_banned_player_figures(player_index)[i])
-                    or not self.figure_in_board(player_figures[i])
+                    or not self.playable_figure_in_board(player_figures[i])
                 ):
                     self.selected_figure_idx = None
                     self.selected_figure_area = None
@@ -525,6 +548,54 @@ class GameUI:
             and self.selected_figure_area is not None
         )
 
+    def draw_game_info(self):
+        font = pygame.font.SysFont("Arial", 16)
+
+        # Player turn text
+        player_turn_text = font.render(
+            f"Player {self.game.logic.player_turn + 1} turn", True, (0, 0, 0)
+        )
+        player_turn_rect = player_turn_text.get_rect(
+            center=(Config.SCREEN_WIDTH // 2, 10)
+        )
+        self.screen.blit(player_turn_text, player_turn_rect)
+
+        # Remaining figure cards for each player
+        player1_figures_remaining = self.game.player_figures_deck_qty(0)
+        player2_figures_remaining = self.game.player_figures_deck_qty(1)
+        player1_figures_text = font.render(
+            f"Player 1 Figures: {player1_figures_remaining}", True, (0, 0, 0)
+        )
+        player2_figures_text = font.render(
+            f"Player 2 Figures: {player2_figures_remaining}", True, (0, 0, 0)
+        )
+        player1_figures_rect = player1_figures_text.get_rect(
+            center=(Config.SCREEN_WIDTH // 2, 30)
+        )
+        player2_figures_rect = player2_figures_text.get_rect(
+            center=(Config.SCREEN_WIDTH // 2, 50)
+        )
+        self.screen.blit(player1_figures_text, player1_figures_rect)
+        self.screen.blit(player2_figures_text, player2_figures_rect)
+
+        # Last played color
+        last_color = self.game.last_color_played()
+        last_color_text = font.render("Last Color Played:", True, (0, 0, 0))
+        last_color_rect = last_color_text.get_rect(
+            center=(Config.SCREEN_WIDTH // 2 - 50, 70)
+        )
+        self.screen.blit(last_color_text, last_color_rect)
+
+        if last_color is not None:
+            color = Config.COLORS[last_color - 1]
+            pygame.draw.circle(
+                self.screen, color, (Config.SCREEN_WIDTH // 2 + 50, 70), 10
+            )
+        else:
+            pygame.draw.circle(
+                self.screen, (255, 255, 255), (Config.SCREEN_WIDTH // 2 + 50, 70), 10
+            )
+
     def main_loop(self):
         running = True
 
@@ -537,6 +608,7 @@ class GameUI:
             self.draw_cards()
             self.draw_pass_turn_button()
             self.draw_player_figures()
+            self.draw_game_info()
             pygame.display.flip()
         pygame.quit()
         sys.exit()

@@ -84,3 +84,10 @@ class Game:
             player_figure_slot=figure_idx,
         )
         self.logic.do_move(move)
+
+    def last_color_played(self):
+        return self.logic.last_color_played
+
+    def player_figures_deck_qty(self, player_idx):
+        player: Player = self.logic.players[player_idx]
+        return len(player.figures_deck)

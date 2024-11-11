@@ -173,6 +173,8 @@ class Switcher:
         self.last_color_played = player_move.figure_board_color
 
     def player_match_figure(self, player_move: MatchFigureMove):
+        if player_move.figure_board_color == self.last_color_played:
+            raise ValueError("Invalid move, same color played")
         player = self.current_player
         figure_player: Player = self.players[player_move.player_id]
         if figure_player.player_id == player.player_id:
