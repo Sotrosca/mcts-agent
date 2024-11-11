@@ -596,11 +596,18 @@ class GameUI:
                 self.screen, (255, 255, 255), (Config.SCREEN_WIDTH // 2 + 50, 70), 10
             )
 
+    def draw_player_winner(self, player_winner):
+        font = pygame.font.SysFont("Arial", 40)
+        text = font.render(f"Player {player_winner} wins!", True, (0, 0, 0))
+        text_rect = text.get_rect(center=(Config.SCREEN_WIDTH // 2, 100))
+        self.screen.blit(text, text_rect)
+
     def main_loop(self):
         running = True
 
         self.board_figures = game.find_board_figures()
         while running:
+            player_winner = self.game.check_player_winner()
             running = self.handle_events()
             self.screen.fill(Config.BACKGROUND_COLOR)
             self.draw_board()
@@ -609,6 +616,8 @@ class GameUI:
             self.draw_pass_turn_button()
             self.draw_player_figures()
             self.draw_game_info()
+            if player_winner is not None:
+                self.draw_player_winner(player_winner)
             pygame.display.flip()
         pygame.quit()
         sys.exit()

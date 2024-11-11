@@ -20,6 +20,8 @@ class Player:
         self.figures_deck = figures_deck
 
     def draw_figure(self):
+        if len(self.figures_deck) == 0:
+            return None
         figure = self.figures_deck.pop(0)
 
         for i, figure_to_play in self.figures_slots.items():

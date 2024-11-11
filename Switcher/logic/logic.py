@@ -37,6 +37,7 @@ class Switcher:
         self.player_turn = np.random.randint(0, players_quantity)
         self.current_player: Player = self.players[self.player_turn]
         self.turn = 0
+        self.winner = None
 
     def shuffle_deck(self, deck):
         np.random.shuffle(deck)
@@ -182,8 +183,11 @@ class Switcher:
         else:
             self.play_opp_player_figure(player_move)
 
-    def check_player_win(self, player: Player):
-        return len(player.figures_deck) == 0 and len(player.total_figures_slots()) == 0
+    def check_current_player_winner(self):
+        return (
+            len(self.current_player.figures_deck) == 0
+            and self.current_player.total_figures_slots() == 0
+        )
 
     def switch_possible_moves(self, switch_move: SwitchMovementCard, x, y):
         moves = switch_move.possible_moves(x, y)
@@ -208,3 +212,8 @@ class Switcher:
             self.player_match_figure(player_move)
         else:
             raise ValueError("Invalid move type")
+
+        print(f"Winner: {self.winner}")
+        if self.check_current_player_winner():
+            self.winner = self.player_turn
+            print(f"Winner winner: {self.winner}")
