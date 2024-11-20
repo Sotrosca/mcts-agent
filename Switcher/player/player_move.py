@@ -37,6 +37,9 @@ class SwitchMove(PlayerMove):
         self.steps_x = steps_x
         self.steps_y = steps_y
 
+    def __repr__(self):
+        return f"Switch: {self.cell_x_target}, {self.cell_y_target}, {self.steps_x}, {self.steps_y}"
+
 
 class PassMove(PlayerMove):
     def __init__(self):
@@ -62,3 +65,6 @@ class MatchFigureMove(PlayerMove):
             player_id=player_id,
             player_figure_slot=player_figure_slot,
         )
+
+    def __repr__(self):
+        return f"Match figure: {self.figure_name}, {self.figure_board_x}, {self.figure_board_y}, color: {self.figure_board_color}, slot: {self.player_figure_slot}"

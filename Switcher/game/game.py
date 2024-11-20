@@ -7,7 +7,7 @@ from Switcher.player.player_move import MatchFigureMove, PassMove, SwitchMove
 class Game:
     def __init__(self, players_qty=2):
         self.players_qty = players_qty
-        self.logic = Switcher(players_qty, figures_deck_by_player=2)
+        self.logic = Switcher(players_qty, figures_deck_by_player=12)
         self.logic.deal_figures()
         self.logic.deal_moves()
         self.board = self.logic.board

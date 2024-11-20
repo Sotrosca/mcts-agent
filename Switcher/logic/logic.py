@@ -1,7 +1,13 @@
 import numpy as np
 
 from Switcher.logic.board import Board
-from Switcher.logic.figures import BoardFigure, figures_deck, find_figure, find_figures
+from Switcher.logic.figures import (
+    BoardFigure,
+    figures_deck,
+    find_figure,
+    find_figure_by_name,
+    find_figures,
+)
 from Switcher.logic.moves import SwitchMovementCard, moves_deck
 from Switcher.player.player import Player
 from Switcher.player.player_move import (
@@ -45,7 +51,7 @@ class Switcher:
 
     def draw_card(self, deck, qty=1, discard_deck=None):
         if len(deck) < qty:
-            print("Not enough cards to draw")
+            # print("Not enough cards to draw")
             if discard_deck is not None:
                 deck.extend(self.shuffle_deck(discard_deck))
                 discard_deck.clear()
@@ -76,7 +82,7 @@ class Switcher:
         # The game knows about axis x and y, but the board knows about rows and columns
         cell2_x = cell_x + move_x
         cell2_y = cell_y + move_y
-        print(f"Switching {cell_x, cell_y} with {cell2_x, cell2_y}")
+        # print(f"Switching {cell_x, cell_y} with {cell2_x, cell2_y}")
         valid_move = self.board.switch_cells(cell_y, cell_x, cell2_y, cell2_x)
         return valid_move
 
@@ -85,6 +91,15 @@ class Switcher:
         board_figures = []
         for color in range(1, self.color_quantity + 1):
             board_figures.extend(find_figures(board_state_with_border, color))
+        return board_figures
+
+    def find_board_figure(self, figure_name):
+        board_state_with_border = self.board.get_board_state_color(with_border=True)
+        board_figures = []
+        for color in range(1, self.color_quantity + 1):
+            board_figures.extend(
+                find_figure_by_name(board_state_with_border, color, figure_name)
+            )
         return board_figures
 
     def valid_board_figure(self, figure_name, x, y, figure_color):
@@ -102,12 +117,12 @@ class Switcher:
             )
             self.current_player.draw_move_card(move_card[0])
             hand_size += 1
-            print(f"Player {self.current_player.player_id} draws a move card")
+            # print(f"Player {self.current_player.player_id} draws a move card")
 
         self.player_turn = (self.player_turn + 1) % self.players_quantity
         self.current_player = self.players[self.player_turn]
         self.turn += 1
-        print(f"Player {self.current_player.player_id} turn")
+        # print(f"Player {self.current_player.player_id} turn")
 
     def player_switch(self, player_move: SwitchMove):
         player = self.current_player
@@ -136,20 +151,21 @@ class Switcher:
         )
 
         if not valid_board_figure:
-            raise ValueError("Invalid figure")
+            print(f"Invalid figure {figure_name} at {figure_x, figure_y}")
+            # raise ValueError("Invalid figure")
 
     def play_current_player_figure(self, player_move: MatchFigureMove):
         player = self.current_player
         self.check_figure_board_move_is_valid(player_move)
 
-        print(
-            f"Player {player.player_id} matches his figure {player_move.figure_name} from slot {player_move.player_figure_slot}"
-        )
+        # print(
+        #    f"Player {player.player_id} matches his figure {player_move.figure_name} from slot {player_move.player_figure_slot}"
+        # )
 
         player.play_figure(player_move.player_figure_slot)
         self.last_color_played = player_move.figure_board_color
 
-        print(f"Total figures left: {player.total_figures_slots()}")
+        # print(f"Total figures left: {player.total_figures_slots()}")
 
         if player.total_figures_slots() == 0:
             player.enable_player()
@@ -213,7 +229,7 @@ class Switcher:
         else:
             raise ValueError("Invalid move type")
 
-        print(f"Winner: {self.winner}")
+        # print(f"Winner: {self.winner}")
         if self.check_current_player_winner():
             self.winner = self.player_turn
-            print(f"Winner winner: {self.winner}")
+            # print(f"Winner winner: {self.winner}")

@@ -46,7 +46,7 @@ class Player:
         return figure
 
     def show_figure(self, figure_slot):
-        print(self.figures_slots[figure_slot])
+        # print(self.figures_slots[figure_slot])
         figure = self.figures_slots[figure_slot]
         return figure
 

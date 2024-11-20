@@ -1,7 +1,8 @@
 import pickle
 import time
 
-class NaturalNumbersIterator():
+
+class NaturalNumbersIterator:
     def __iter__(self):
         self.a = 0
         return self
@@ -11,8 +12,17 @@ class NaturalNumbersIterator():
         self.a += 1
         return x
 
-class MontecarloPlayer():
-    def __init__(self, original_simulation, selection_function, expansion_function, retropropagation_function, simulation_function, movement_choice_function):
+
+class MontecarloPlayer:
+    def __init__(
+        self,
+        original_simulation,
+        selection_function,
+        expansion_function,
+        retropropagation_function,
+        simulation_function,
+        movement_choice_function,
+    ):
         self.ids_nodes = iter(NaturalNumbersIterator())
         self.original_simulation = pickle.loads(pickle.dumps(original_simulation, -1))
         self.copy_simulation = pickle.loads(pickle.dumps(original_simulation, -1))
@@ -45,7 +55,7 @@ class MontecarloPlayer():
         num_rollouts = 0
 
         while time.time() - start_time < time_to_search:
-            self.explore_action_tree(epochs=1 , log=False)
+            self.explore_action_tree(epochs=1, log=False)
             num_rollouts += 1
         if log:
             run_time = time.time() - start_time
@@ -59,17 +69,21 @@ class MontecarloPlayer():
         self.action_tree = action_node
         self.action_tree_depth -= 1
 
-    def explore_action_tree(self, epochs = 1000, log=True, log_frecuency=100):
+    def explore_action_tree(self, epochs=1000, log=True, log_frecuency=100):
         for epoch in range(epochs):
             if log and epoch % log_frecuency == 0:
                 print(epoch)
             action_node = self.selection_function(self.action_tree)
-            if (self.expansion_function(action_node)):
+            if self.expansion_function(action_node):
                 self.expand_node(action_node)
                 action_node = self.selection_function(action_node)
 
-            simulation_finished = self.simulation_function(action_node, self.copy_simulation)
-            self.retropropagation_function(self.original_simulation, simulation_finished, action_node)
+            simulation_finished = self.simulation_function(
+                action_node, self.copy_simulation
+            )
+            self.retropropagation_function(
+                self.original_simulation, simulation_finished, action_node
+            )
 
     def get_best_move(self):
         return self.movement_choice_function(self.action_tree)
@@ -91,30 +105,56 @@ class MontecarloPlayer():
 
     def expand_node(self, action_node):
         new_level = action_node.level + 1
-        self.copy_simulation.set_state(pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1)))
+        self.copy_simulation.set_state(
+            pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1))
+        )
         possible_actions = self.copy_simulation.get_possible_actions()
 
         for action in possible_actions:
-            self.copy_simulation.set_state(pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1)))
+            self.copy_simulation.set_state(
+                pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1))
+            )
             self.copy_simulation.execute_action(action)
-            new_simulation_state = pickle.loads(pickle.dumps(self.copy_simulation.get_state(), -1))
-            action_node.childs.append(Node(action_node, [], action, new_simulation_state, self.ids_nodes.__next__(), new_level))
+            new_simulation_state = pickle.loads(
+                pickle.dumps(self.copy_simulation.get_state(), -1)
+            )
+            action_node.childs.append(
+                Node(
+                    action_node,
+                    [],
+                    action,
+                    new_simulation_state,
+                    self.ids_nodes.__next__(),
+                    new_level,
+                )
+            )
         self.set_action_tree_depth(new_level)
 
 
-class Node():
+class Node:
     def __init__(self, parent, childs, action, simulation_state, id_node, level):
-        self.parent = parent #Node
-        self.childs = childs #Node[]
-        self.action = action # Accion realizada para llegar al estado representado en simulation_state
-        self.simulation_state = simulation_state # Estado de la simulacion con la action ya realizada
+        self.parent = parent  # Node
+        self.childs = childs  # Node[]
+        self.action = action  # Accion realizada para llegar al estado representado en simulation_state
+        self.simulation_state = (
+            simulation_state  # Estado de la simulacion con la action ya realizada
+        )
         self.visits = 0
         self.value = 0
         self.id = id_node
         self.level = level
 
     def __str__(self):
-        return "Id: " + str(self.id) + " - " + "visits: " + str(self.visits) + " - " + "value: " + str(self.value)
+        return (
+            "Id: "
+            + str(self.id)
+            + " - "
+            + "visits: "
+            + str(self.visits)
+            + " - "
+            + "value: "
+            + str(self.value)
+        )
 
     def has_childs(self):
         return self.childs != None and len(self.childs) > 0

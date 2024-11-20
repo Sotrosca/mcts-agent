@@ -21,6 +21,12 @@ class Cell:
         self.row = row
         self.column = column
 
+    def __str__(self):
+        return f"({self.row}, {self.column}) - {self.color}, selected: {self.selected}"
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class Board:
     state = None

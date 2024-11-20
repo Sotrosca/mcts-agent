@@ -155,7 +155,8 @@ def generate_variations(figure):
     return variations
 
 
-def match_at_position(matrix, figure, x, y, color_number):
+def match_at_position(matrix, figure, x, y, color_number, matrix_x_len, matrix_y_len):
+
     for i in range(len(figure)):
         for j in range(len(figure[0])):
             figure_value = figure[i][j]
@@ -164,16 +165,16 @@ def match_at_position(matrix, figure, x, y, color_number):
                 continue
             elif figure_value == 0:
                 if (
-                    x + i < len(matrix)
-                    and y + j < len(matrix[0])
+                    x + i < matrix_x_len
+                    and y + j < matrix_y_len
                     and matrix[x + i][y + j] == color_number
                     and matrix[x + i][y + j] != 0
                     and matrix[x + i][y + j] != -1
                 ):
                     return False
             elif (
-                x + i >= len(matrix)
-                or y + j >= len(matrix[0])
+                x + i >= matrix_x_len
+                or y + j >= matrix_y_len
                 or matrix[x + i][y + j] != color_number
             ):
                 return False
@@ -192,25 +193,62 @@ def figure_cells(figure, x, y):
 def find_figure(matrix, figure_name, x, y, color_number):
     figure = figures[figure_name]
     variations = generate_variations(figure)
+    matrix_x_len = len(matrix)
+    matrix_y_len = len(matrix[0])
     for variation in variations:
-        if match_at_position(matrix, variation, x, y, color_number):
-            print(
-                f"Figura {figure_name} encontrada en posición ({x}, {y}) con color {color_number}"
-            )
-            print(variation)
+        if match_at_position(
+            matrix, variation, x, y, color_number, matrix_x_len, matrix_y_len
+        ):
+            # print(
+            #    f"Figura {figure_name} encontrada en posición ({x}, {y}) con color {color_number}"
+            # )
+            # print(variation)
             return BoardFigure(figure_name, x, y, color_number, variation)
     return None
 
 
+def find_figure_by_name(matrix, color_number, figure_name):
+    board_figures = []
+    matrix_x_len = len(matrix)
+    matrix_y_len = len(matrix[0])
+    figure = figures[figure_name]
+    variations = generate_variations(figure)
+    for x in range(len(matrix)):
+        for y in range(len(matrix[0])):
+            for variation in variations:
+                if match_at_position(
+                    matrix,
+                    variation,
+                    x,
+                    y,
+                    color_number,
+                    matrix_x_len,
+                    matrix_y_len,
+                ):
+                    figure = BoardFigure(figure_name, x, y, color_number, variation)
+                    board_figures.append(figure)
+    return board_figures
+
+
 def find_figures(matrix, color_number):
     board_figures = []
+    matrix_x_len = len(matrix)
+    matrix_y_len = len(matrix[0])
     for name, figure in figures.items():
         variations = generate_variations(figure)
         for x in range(len(matrix)):
             for y in range(len(matrix[0])):
                 for variation in variations:
 
-                    if match_at_position(matrix, variation, x, y, color_number):
+                    if match_at_position(
+                        matrix,
+                        variation,
+                        x,
+                        y,
+                        color_number,
+                        matrix_x_len,
+                        matrix_y_len,
+                    ):
                         # print(
                         #    f"Figura {name} encontrada en posición ({x}, {y}) con color {color_number}"
                         # )

@@ -1,15 +1,28 @@
 # Python
+import cProfile
+import io
+import pstats
 import sys
 
 import pygame
 
+from MCTSAgent.MCTSAgent import MontecarloPlayer
 from Switcher.game import Config, Game
 from Switcher.logic.figures import BoardFigure, figures
+from Switcher.mcts_functions import (
+    expansion_function,
+    movement_choice_function,
+    retropropagation_function,
+    selection_function,
+    simulation_function,
+)
+from Switcher.mcts_simulation import SwitcherSimulation
 
 
 class GameUI:
     def __init__(self, game: Game):
         self.game = game
+        self.simulation = SwitcherSimulation(game.logic)
         pygame.init()
         self.screen = pygame.display.set_mode(
             (Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT)
@@ -486,6 +499,42 @@ class GameUI:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return False
+            elif event.type == pygame.KEYDOWN:
+                # Create a profiler
+
+                ia_player = MontecarloPlayer(
+                    original_simulation=self.simulation,
+                    selection_function=selection_function,
+                    expansion_function=expansion_function,
+                    retropropagation_function=retropropagation_function,
+                    simulation_function=simulation_function,
+                    movement_choice_function=movement_choice_function,
+                )
+                # self.simulation.set_initial_state()
+                # possible_actions = self.simulation.get_possible_actions()
+                # [print(f"Action {str(action)}") for action in possible_actions]
+                # self.clean_selected()
+                # pr = cProfile.Profile()
+                # pr.enable()
+                print(len(ia_player.action_tree.childs))
+                qty_possible_actions = len(ia_player.action_tree.childs)
+                ia_player.explore_action_tree(
+                    epochs=qty_possible_actions * 3, log=False
+                )
+                best_move = ia_player.get_best_move()
+                print(f"Best move: {best_move}")
+                print(best_move.action)
+                # Disable the profiler
+                # pr.disable()
+
+                # Create a stream to hold the profiling results
+                # s = io.StringIO()
+                # ps = pstats.Stats(pr, stream=s).sort_stats(pstats.SortKey.TIME)
+                # ps.print_stats()
+                # Write the profiling results to a file
+                # with open("profiling_results_2.txt", "w") as f:
+                #    f.write(s.getvalue())
+                self.board_figures = game.find_board_figures()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 x, y = pygame.mouse.get_pos()
                 area = self.event_position_area(x, y)
@@ -512,6 +561,7 @@ class GameUI:
                     and self.selected_player_area is not None
                 ):
                     cell_x, cell_y = self.get_square_coordinates(x, y)
+                    print(cell_x, cell_y)
 
                     if (cell_x, cell_y) in self.selected_cells:
                         self.selected_cells.remove((cell_x, cell_y))
