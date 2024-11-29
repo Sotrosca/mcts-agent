@@ -54,7 +54,7 @@ def simulation_function(action_node: Node, simulation_copy: SwitcherSimulation):
     return simulation_copy
 
 
-def retropropagation_function_2(
+def retropropagation_function(
     original_simulation: SwitcherSimulation,
     simulation_finished: SwitcherSimulation,
     action_node: Node,
@@ -84,7 +84,7 @@ def retropropagation_function_2(
             actual_node.value += value_node * -1
 
 
-def retropropagation_function(
+def retropropagation_function_2(
     original_simulation: SwitcherSimulation,
     simulation_finished: SwitcherSimulation,
     action_node: Node,

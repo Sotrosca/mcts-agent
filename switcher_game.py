@@ -1,7 +1,3 @@
-# Python
-import cProfile
-import io
-import pstats
 import sys
 
 import pygame
@@ -307,100 +303,59 @@ class GameUI:
                 colors.append(figure.color)
         return colors
 
-    def draw_player_figures(self):
+    def draw_player_figures(self, player_index, player_figures_area_rect):
+        player_figures = self.game.get_player_figures(player_index)
+        player_banned_figures = self.game.get_banned_player_figures(player_index)
+        for i, figure_name in player_figures.items():
+            is_banned = player_banned_figures[i]
+            x = player_figures_area_rect.x + (i % 2) * (
+                player_figures_area_rect.width // 2
+            )
+            y = player_figures_area_rect.y + (i // 2) * (
+                player_figures_area_rect.height // 2
+            )
+
+            if i not in self.player_figures_rect[player_index]:
+                self.player_figures_rect[player_index][i] = pygame.Rect(
+                    x,
+                    y,
+                    player_figures_area_rect.width // 2,
+                    player_figures_area_rect.height // 2,
+                )
+            figure_rect = self.player_figures_rect[player_index][i]
+
+            figure_background_color = (
+                Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
+                if self.playable_figure_in_board(figure_name)
+                else Config.FIGURE_BACKGROUND_COLOR
+            )
+
+            pygame.draw.rect(self.screen, figure_background_color, figure_rect)
+            pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
+
+            figure_matrix = figures.get(figure_name)
+            if figure_matrix:
+                figure_width = len(figure_matrix[0]) * Config.CELL_SIZE
+                figure_height = len(figure_matrix) * Config.CELL_SIZE
+                offset_x = (player_figures_area_rect.width // 2 - figure_width) // 2
+                offset_y = (player_figures_area_rect.height // 2 - figure_height) // 2
+                self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
+            if is_banned:
+                # Draw a red cross over the figure
+                pygame.draw.line(
+                    self.screen,
+                    (255, 0, 0),
+                    (x, y),
+                    (x + figure_rect.width, y + figure_rect.height),
+                    3,
+                )
+
+    def draw_players_figures(self):
         pygame.draw.rect(self.screen, (200, 200, 200), self.player1_figures_area_rect)
         pygame.draw.rect(self.screen, (200, 200, 200), self.player2_figures_area_rect)
 
-        # Draw player 1 figures
-        player1_figures = self.game.get_player_figures(0)
-        player1_banned_figures = self.game.get_banned_player_figures(0)
-
-        for slot_idx, figure_name in player1_figures.items():
-            is_banned = player1_banned_figures[slot_idx]
-            x = self.player1_figures_area_rect.x + (slot_idx % 2) * (
-                self.player1_figures_area_rect.width // 2
-            )
-            y = self.player1_figures_area_rect.y + (slot_idx // 2) * (
-                self.player1_figures_area_rect.height // 2
-            )
-
-            if slot_idx not in self.player_figures_rect[0]:
-                self.player_figures_rect[0][slot_idx] = pygame.Rect(
-                    x,
-                    y,
-                    self.player1_figures_area_rect.width // 2,
-                    self.player1_figures_area_rect.height // 2,
-                )
-            figure_rect = self.player_figures_rect[0][slot_idx]
-
-            figure_background_color = (
-                Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
-                if self.playable_figure_in_board(figure_name)
-                else Config.FIGURE_BACKGROUND_COLOR
-            )
-            pygame.draw.rect(self.screen, figure_background_color, figure_rect)
-            pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
-            figure_matrix = figures.get(figure_name)
-            if figure_matrix:
-                figure_width = len(figure_matrix[0]) * Config.CELL_SIZE
-                figure_height = len(figure_matrix) * Config.CELL_SIZE
-                offset_x = (figure_rect.width - figure_width) // 2
-                offset_y = (figure_rect.height - figure_height) // 2
-                self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
-            if is_banned:
-                # Draw a red cross over the figure
-                pygame.draw.line(
-                    self.screen,
-                    (255, 0, 0),
-                    (x, y),
-                    (x + figure_rect.width, y + figure_rect.height),
-                    3,
-                )
-
-        # Draw player 2 figures
-        player2_figures = self.game.get_player_figures(1)
-        player2_banned_figures = self.game.get_banned_player_figures(1)
-        for slot_idx, figure_name in player2_figures.items():
-            is_banned = player2_banned_figures[slot_idx]
-            x = self.player2_figures_area_rect.x + (slot_idx % 2) * (
-                self.player2_figures_area_rect.width // 2
-            )
-            y = self.player2_figures_area_rect.y + (slot_idx // 2) * (
-                self.player2_figures_area_rect.height // 2
-            )
-            if slot_idx not in self.player_figures_rect[1]:
-                self.player_figures_rect[1][slot_idx] = pygame.Rect(
-                    x,
-                    y,
-                    self.player2_figures_area_rect.width // 2,
-                    self.player2_figures_area_rect.height // 2,
-                )
-            figure_rect = self.player_figures_rect[1][slot_idx]
-
-            figure_background_color = (
-                Config.FIGURE_ON_BOARD_BACKGROUND_COLOR
-                if self.playable_figure_in_board(figure_name)
-                else Config.FIGURE_BACKGROUND_COLOR
-            )
-
-            pygame.draw.rect(self.screen, figure_background_color, figure_rect)
-            pygame.draw.rect(self.screen, (0, 0, 0), figure_rect, 3)
-            figure_matrix = figures.get(figure_name)
-            if figure_matrix:
-                figure_width = len(figure_matrix[0]) * Config.CELL_SIZE
-                figure_height = len(figure_matrix) * Config.CELL_SIZE
-                offset_x = (figure_rect.width - figure_width) // 2
-                offset_y = (figure_rect.height - figure_height) // 2
-                self.draw_figure(self.screen, figure_matrix, x + offset_x, y + offset_y)
-            if is_banned:
-                # Draw a red cross over the figure
-                pygame.draw.line(
-                    self.screen,
-                    (255, 0, 0),
-                    (x, y),
-                    (x + figure_rect.width, y + figure_rect.height),
-                    3,
-                )
+        self.draw_player_figures(0, self.player1_figures_area_rect)
+        self.draw_player_figures(1, self.player2_figures_area_rect)
 
     def get_card_position(self, player_index, card_index):
         if player_index == 0:
@@ -664,7 +619,7 @@ class GameUI:
             self.draw_card_areas()
             self.draw_cards()
             self.draw_pass_turn_button()
-            self.draw_player_figures()
+            self.draw_players_figures()
             self.draw_game_info()
             if player_winner is not None:
                 self.draw_player_winner(player_winner)
