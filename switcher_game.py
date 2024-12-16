@@ -160,7 +160,7 @@ class GameUI:
                             self.action_state.selected_figure_idx,
                             cell_y,
                             cell_x,
-                            self.board_figures,
+                            self.action_state.board_figures,
                         )
                         self.action_state.clean_selected()
                         print("Figure matched")
@@ -214,7 +214,7 @@ class GameUI:
         pygame.init()
         running = True
 
-        self.board_figures = game.find_board_figures()
+        self.action_state.board_figures = game.find_board_figures()
         while running:
             player_winner = self.game.check_player_winner()
             running = self.handle_events()
