@@ -1,6 +1,7 @@
 # renderer.py
 
 import pygame
+import pygame.draw
 
 from Switcher.game import Config, Game
 from Switcher.game.state import ActionState
@@ -65,6 +66,7 @@ class GameRenderer:
 
     def draw_board(self):
         board_rect = self.board_rect
+        pygame.draw.rect(self.screen, Config.BOARD_BACKGROUND_COLOR, board_rect)
         board_image = self.get_board_image()
 
         all_player_figures = self.game.get_all_player_figure_names()

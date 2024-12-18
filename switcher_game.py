@@ -211,7 +211,7 @@ class GameUI:
         )
 
     def main_loop(self):
-        pygame.init()
+
         running = True
 
         self.action_state.board_figures = game.find_board_figures()
@@ -233,6 +233,7 @@ class GameUI:
 
 
 if __name__ == "__main__":
+    pygame.init()
     game = Game()
     ui = GameUI(game)
     ui.main_loop()
