@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 
 
@@ -41,10 +43,29 @@ class Board:
         Builds the board for the game with random colors in each cell
         """
         self.state = np.zeros(self.size, dtype=Cell)
+        total_cells = self.size[0] * self.size[1]
+        cells_quantity_by_color = total_cells // self.color_quantity
+
+        # Create a list of colors with the exact quantity needed
+        colors = []
+        for color in range(1, self.color_quantity + 1):
+            colors.extend([color] * cells_quantity_by_color)
+
+        # Add remaining colors if any
+        remaining_cells = total_cells - len(colors)
+        for color in range(1, remaining_cells + 1):
+            colors.append(color)
+
+        # Shuffle the list of colors
+        random.shuffle(colors)
+
+        # Assign colors to the board cells
+        color_index = 0
         for i in range(self.size[0]):
             for j in range(self.size[1]):
-                self.state[i][j] = Cell(np.random.randint(1, self.color_quantity + 1))
+                self.state[i][j] = Cell(colors[color_index])
                 self.state[i][j].set_position(i, j)
+                color_index += 1
 
     def select_cell(self, cell_row, cell_column):
         cell: Cell = self.state[cell_row][cell_column]

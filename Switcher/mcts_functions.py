@@ -37,7 +37,7 @@ def selection_function(tree_nodes: Node):
 
 
 def expansion_function(node):
-    return node.visits == 2 or len(node.childs) == 1
+    return node.visits == 1 or len(node.childs) == 1
 
 
 def simulation_function(action_node: Node, simulation_copy: SwitcherSimulation):
@@ -45,7 +45,7 @@ def simulation_function(action_node: Node, simulation_copy: SwitcherSimulation):
     simulation_copy.set_state(state)
     i = 0
 
-    while simulation_copy.player_winner() == None and i < 4:
+    while simulation_copy.player_winner() == None and i < 10:
         possible_actions = simulation_copy.get_possible_actions()
         action = random.choice(possible_actions)
         simulation_copy.execute_action(action)
@@ -127,11 +127,13 @@ def retropropagation_function_2(
 
 def movement_choice_function(tree_nodes: Node):
     best_child_visits = -1
-    best_child = None
+    best_childs = None
 
     for child in tree_nodes.childs:
         if child.visits > best_child_visits:
             best_child_visits = child.visits
-            best_child = child
+            best_childs = [child]
+        elif child.visits == best_child_visits:
+            best_childs.append(child)
 
-    return best_child
+    return random.choice(best_childs)
