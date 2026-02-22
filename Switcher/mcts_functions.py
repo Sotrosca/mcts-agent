@@ -1,4 +1,3 @@
-import copy
 import pickle
 import random
 
@@ -137,3 +136,58 @@ def movement_choice_function(tree_nodes: Node):
             best_childs.append(child)
 
     return random.choice(best_childs)
+
+
+class SwitcherMCTSAdapter:
+    def __init__(self, simulation: SwitcherSimulation, rollout_limit=10, rng=None):
+        self.simulation = pickle.loads(pickle.dumps(simulation, -1))
+        self.rollout_limit = rollout_limit
+        self.rng = rng or random.Random()
+
+    def get_initial_state(self):
+        return self.clone_state(self.simulation.get_state())
+
+    def clone_state(self, state):
+        return pickle.loads(pickle.dumps(state, -1))
+
+    def get_possible_actions(self, state):
+        self.simulation.set_state(self.clone_state(state))
+        return self.simulation.get_possible_actions()
+
+    def apply_action(self, state, action):
+        self.simulation.set_state(self.clone_state(state))
+        self.simulation.execute_action(action)
+        return self.clone_state(self.simulation.get_state())
+
+    def is_terminal(self, state):
+        self.simulation.set_state(self.clone_state(state))
+        return self.simulation.player_winner() is not None
+
+    def get_player_turn(self, state):
+        return state.get("player_turn")
+
+    def rollout(self, state, root_player, rng):
+        rng = rng or self.rng
+        self.simulation.set_state(self.clone_state(state))
+        steps = 0
+        while self.simulation.player_winner() is None and steps < self.rollout_limit:
+            actions = self.simulation.get_possible_actions()
+            if not actions:
+                break
+            action = rng.choice(actions)
+            self.simulation.execute_action(action)
+            steps += 1
+        return self._evaluate_finished(state, root_player)
+
+    def _evaluate_finished(self, base_state, root_player):
+        player_winner = self.simulation.player_winner()
+        if player_winner == root_player:
+            return 10
+        if player_winner is not None and player_winner != root_player:
+            return -10
+        player_state_key = f"player{root_player + 1}_state"
+        base_figures = len(base_state[player_state_key]["figures_played"])
+        finished_figures = len(
+            self.simulation.logic.players[root_player].figures_played
+        )
+        return finished_figures - base_figures

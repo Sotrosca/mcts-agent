@@ -76,7 +76,7 @@ class SwitcherSimulation:
         state_dict = copy.deepcopy(state_dict)
         self.logic.board.state = state_dict.get("board_state")
         # self.logic.figures_deck = state_dict.get("figures_deck")
-        self.logic.moves_deck = self.logic.shuffle_deck(state_dict.get("moves_deck"))
+        self.logic.moves_deck = state_dict.get("moves_deck")
         self.logic.moves_discard = state_dict.get("moves_discard")
         self.logic.last_color_played = state_dict.get("last_color_played")
         self.logic.player_turn = state_dict.get("player_turn")
@@ -92,8 +92,8 @@ class SwitcherSimulation:
         self.logic.players[0].figures_blocked = state_dict.get("player1_state").get(
             "figures_blocked"
         )
-        self.logic.players[0].figures_deck = self.logic.shuffle_deck(
-            state_dict.get("player1_state").get("figures_deck")
+        self.logic.players[0].figures_deck = state_dict.get("player1_state").get(
+            "figures_deck"
         )
         self.logic.players[0].hand = state_dict.get("player1_state").get("hand")
         self.logic.players[0].hand_size = state_dict.get("player1_state").get(
@@ -111,8 +111,8 @@ class SwitcherSimulation:
         self.logic.players[1].figures_blocked = state_dict.get("player2_state").get(
             "figures_blocked"
         )
-        self.logic.players[1].figures_deck = self.logic.shuffle_deck(
-            state_dict.get("player2_state").get("figures_deck")
+        self.logic.players[1].figures_deck = state_dict.get("player2_state").get(
+            "figures_deck"
         )
         self.logic.players[1].hand = state_dict.get("player2_state").get("hand")
         self.logic.players[1].hand_size = state_dict.get("player2_state").get(

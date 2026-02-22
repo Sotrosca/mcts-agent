@@ -1,6 +1,9 @@
+import copy
 import random
+
 import numpy as np
 import pickle
+
 
 def selection_function(tree_nodes):
     UCT_constant = 1
@@ -33,8 +36,11 @@ def selection_function(tree_nodes):
 def expansion_function(node):
     return node.visits == 3 or len(node.childs) == 1
 
+
 def simulation_function(action_node, simulation_copy):
-    simulation_copy.set_state(pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1)))
+    simulation_copy.set_state(
+        pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1))
+    )
     i = 1
 
     while simulation_copy.player_winner() == None:
@@ -45,13 +51,17 @@ def simulation_function(action_node, simulation_copy):
 
     return simulation_copy
 
-def retropropagation_function(original_simulation, simulation_finished, action_node):
 
+def retropropagation_function(original_simulation, simulation_finished, action_node):
     player_winner = simulation_finished.player_winner()
-    if player_winner == '-':
+    if player_winner == "-":
         value_node = 0
     else:
-        value_node = 1 if player_winner != action_node.simulation_state.get('player_turn_figure') else -1
+        value_node = (
+            1
+            if player_winner != action_node.simulation_state.get("player_turn_figure")
+            else -1
+        )
 
     actual_node = action_node
     actual_node.visits += 1
@@ -61,8 +71,9 @@ def retropropagation_function(original_simulation, simulation_finished, action_n
     while actual_node.has_parent():
         actual_node = actual_node.parent
         actual_node.visits += 1
-        actual_node.value += (value_node * i)
+        actual_node.value += value_node * i
         i = i * (-1)
+
 
 def movement_choice_function(tree_nodes):
     best_child_visits = -1
@@ -74,3 +85,47 @@ def movement_choice_function(tree_nodes):
             best_child = child
 
     return best_child
+
+
+class TicTacToeMCTSAdapter:
+    def __init__(self, simulation, rng=None):
+        self.simulation = copy.deepcopy(simulation)
+        self.rng = rng or random.Random()
+
+    def get_initial_state(self):
+        return self.clone_state(self.simulation.get_state())
+
+    def clone_state(self, state):
+        return copy.deepcopy(state)
+
+    def get_possible_actions(self, state):
+        self.simulation.set_state(self.clone_state(state))
+        return self.simulation.get_possible_actions()
+
+    def apply_action(self, state, action):
+        self.simulation.set_state(self.clone_state(state))
+        self.simulation.execute_action(action)
+        return self.clone_state(self.simulation.get_state())
+
+    def is_terminal(self, state):
+        self.simulation.set_state(self.clone_state(state))
+        return self.simulation.player_winner() is not None
+
+    def get_player_turn(self, state):
+        return state.get("player_turn_figure")
+
+    def rollout(self, state, root_player, rng):
+        rng = rng or self.rng
+        self.simulation.set_state(self.clone_state(state))
+        while self.simulation.player_winner() is None:
+            actions = self.simulation.get_possible_actions()
+            if not actions:
+                break
+            action = rng.choice(actions)
+            self.simulation.run_one_epoch(action)
+        winner = self.simulation.player_winner()
+        if winner == "-":
+            return 0
+        if winner == root_player:
+            return 1
+        return -1

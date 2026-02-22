@@ -10,13 +10,7 @@ from Switcher.game import Config, Game
 from Switcher.game.renderer import GameRenderer
 from Switcher.game.state import ActionState
 from Switcher.logic.figures import BoardFigure, figures
-from Switcher.mcts_functions import (
-    expansion_function,
-    movement_choice_function,
-    retropropagation_function,
-    selection_function,
-    simulation_function,
-)
+from Switcher.mcts_functions import SwitcherMCTSAdapter
 from Switcher.mcts_simulation import SwitcherSimulation
 
 
@@ -114,12 +108,7 @@ class GameScene:
                 pr = cProfile.Profile()
                 pr.enable()
                 ia_player = MontecarloPlayer(
-                    original_simulation=self.simulation,
-                    selection_function=selection_function,
-                    expansion_function=expansion_function,
-                    retropropagation_function=retropropagation_function,
-                    simulation_function=simulation_function,
-                    movement_choice_function=movement_choice_function,
+                    adapter=SwitcherMCTSAdapter(self.simulation)
                 )
 
                 print(len(ia_player.action_tree.childs))

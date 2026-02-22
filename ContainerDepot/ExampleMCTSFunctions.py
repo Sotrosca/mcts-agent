@@ -1,3 +1,4 @@
+import copy
 import random
 import numpy as np
 import pickle
@@ -69,3 +70,45 @@ def movement_choice_function(tree_nodes):
             best_child = child
 
     return best_child
+
+
+class ContainerDepotMCTSAdapter:
+    def __init__(self, simulation, rng=None):
+        self.simulation = copy.deepcopy(simulation)
+        self.rng = rng or random.Random()
+
+    def get_initial_state(self):
+        return self.clone_state(self.simulation.get_state())
+
+    def clone_state(self, state):
+        return copy.deepcopy(state)
+
+    def get_possible_actions(self, state):
+        self.simulation.set_state(self.clone_state(state))
+        return self.simulation.get_possible_actions()
+
+    def apply_action(self, state, action):
+        self.simulation.set_state(self.clone_state(state))
+        self.simulation.execute_action(action)
+        return self.clone_state(self.simulation.get_state())
+
+    def is_terminal(self, state):
+        self.simulation.set_state(self.clone_state(state))
+        return self.simulation.is_simulation_end()
+
+    def get_player_turn(self, state):
+        return 0
+
+    def rollout(self, state, root_player, rng):
+        rng = rng or self.rng
+        self.simulation.set_state(self.clone_state(state))
+        while not self.simulation.is_simulation_end():
+            actions = self.simulation.get_possible_actions()
+            if not actions:
+                break
+            action = rng.choice(actions)
+            self.simulation.run_one_epoch(action)
+        return self._evaluate_finished()
+
+    def _evaluate_finished(self):
+        return 1 / max(1, self.simulation.epochs)

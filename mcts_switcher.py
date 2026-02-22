@@ -1,35 +1,21 @@
 from MCTSAgent.MCTSAgent import MontecarloPlayer
 from Switcher.logic.logic import Switcher
-from Switcher.mcts_functions import (
-    expansion_function,
-    movement_choice_function,
-    retropropagation_function,
-    selection_function,
-    simulation_function,
-)
+from Switcher.mcts_functions import SwitcherMCTSAdapter
 from Switcher.mcts_simulation import SwitcherSimulation
 
 game = Switcher(players_quantity=2)
 game.deal_figures()
 game.deal_moves()
 simulation = SwitcherSimulation(game)
+adapter_1 = SwitcherMCTSAdapter(simulation)
+adapter_2 = SwitcherMCTSAdapter(simulation)
 
 player_1 = MontecarloPlayer(
-    original_simulation=simulation,
-    selection_function=selection_function,
-    expansion_function=expansion_function,
-    retropropagation_function=retropropagation_function,
-    simulation_function=simulation_function,
-    movement_choice_function=movement_choice_function,
+    adapter=adapter_1,
 )
 
 player_2 = MontecarloPlayer(
-    original_simulation=simulation,
-    selection_function=selection_function,
-    expansion_function=expansion_function,
-    retropropagation_function=retropropagation_function,
-    simulation_function=simulation_function,
-    movement_choice_function=movement_choice_function,
+    adapter=adapter_2,
 )
 
 
@@ -43,6 +29,8 @@ while i < 100:
 
     action_node = current_player.search_best_move(1)
     print(action_node)
-    current_player.execute_action_on_simulation(action_node)
     simulation.logic.do_move(action_node.action)
+    state = simulation.get_state()
+    for player in players.values():
+        player.reset_root(state)
     i += 1
