@@ -143,20 +143,63 @@ def rotate_90(mat):
     return [list(row) for row in zip(*mat[::-1])]
 
 
-def generate_variations(figure):
+_VARIATIONS_CACHE = {}
+_VARIATION_DATA_CACHE = {}
+_FIGURE_BY_NAME_CACHE = {}
+_FIGURES_CACHE = {}
+
+
+def _build_variations(figure):
     variations = []
     current = figure
     for _ in range(4):
         current = rotate_90(current)
-        # Check if the current variation is already in the list
         if current not in variations:
             variations.append(current)
-
     return variations
 
 
-def match_at_position(matrix, figure, x, y, color_number, matrix_x_len, matrix_y_len):
+def _build_variation_data(variations):
+    data = []
+    for variation in variations:
+        ones = []
+        zeros = []
+        for i in range(len(variation)):
+            for j in range(len(variation[0])):
+                value = variation[i][j]
+                if value == 1:
+                    ones.append((i, j))
+                elif value == 0:
+                    zeros.append((i, j))
+        data.append(
+            {
+                "matrix": variation,
+                "ones": ones,
+                "zeros": zeros,
+                "height": len(variation),
+                "width": len(variation[0]),
+            }
+        )
+    return data
 
+
+def _matrix_signature(matrix):
+    return tuple(tuple(row) for row in matrix)
+
+
+def _ensure_variation_cache(figure_name):
+    if figure_name in _VARIATIONS_CACHE:
+        return
+    variations = _build_variations(figures[figure_name])
+    _VARIATIONS_CACHE[figure_name] = variations
+    _VARIATION_DATA_CACHE[figure_name] = _build_variation_data(variations)
+
+
+def generate_variations(figure):
+    return _build_variations(figure)
+
+
+def match_at_position(matrix, figure, x, y, color_number, matrix_x_len, matrix_y_len):
     for i in range(len(figure)):
         for j in range(len(figure[0])):
             figure_value = figure[i][j]
@@ -181,6 +224,28 @@ def match_at_position(matrix, figure, x, y, color_number, matrix_x_len, matrix_y
     return True
 
 
+def _match_at_position_cached(
+    matrix, variation_data, x, y, color_number, matrix_x_len, matrix_y_len
+):
+    for dx, dy in variation_data["ones"]:
+        if (
+            x + dx >= matrix_x_len
+            or y + dy >= matrix_y_len
+            or matrix[x + dx][y + dy] != color_number
+        ):
+            return False
+    for dx, dy in variation_data["zeros"]:
+        if (
+            x + dx < matrix_x_len
+            and y + dy < matrix_y_len
+            and matrix[x + dx][y + dy] == color_number
+            and matrix[x + dx][y + dy] != 0
+            and matrix[x + dx][y + dy] != -1
+        ):
+            return False
+    return True
+
+
 def figure_cells(figure, x, y):
     cells = []
     for i in range(len(figure)):
@@ -191,58 +256,85 @@ def figure_cells(figure, x, y):
 
 
 def find_figure(matrix, figure_name, x, y, color_number):
-    figure = figures[figure_name]
-    variations = generate_variations(figure)
+    _ensure_variation_cache(figure_name)
+    variations_data = _VARIATION_DATA_CACHE[figure_name]
     matrix_x_len = len(matrix)
     matrix_y_len = len(matrix[0])
-    for variation in variations:
-        if match_at_position(
-            matrix, variation, x, y, color_number, matrix_x_len, matrix_y_len
+    for variation_data in variations_data:
+        if _match_at_position_cached(
+            matrix, variation_data, x, y, color_number, matrix_x_len, matrix_y_len
         ):
             # print(
             #    f"Figura {figure_name} encontrada en posición ({x}, {y}) con color {color_number}"
             # )
             # print(variation)
-            return BoardFigure(figure_name, x, y, color_number, variation)
+            return BoardFigure(
+                figure_name, x, y, color_number, variation_data["matrix"]
+            )
     return None
 
 
 def find_figure_by_name(matrix, color_number, figure_name):
+    cache_key = (_matrix_signature(matrix), color_number, figure_name)
+    cached = _FIGURE_BY_NAME_CACHE.get(cache_key)
+    if cached is not None:
+        return [
+            BoardFigure(figure_name, x, y, color_number, variation)
+            for x, y, variation in cached
+        ]
     board_figures = []
     matrix_x_len = len(matrix)
     matrix_y_len = len(matrix[0])
-    figure = figures[figure_name]
-    variations = generate_variations(figure)
+    _ensure_variation_cache(figure_name)
+    variations_data = _VARIATION_DATA_CACHE[figure_name]
+    cached_matches = []
     for x in range(len(matrix)):
         for y in range(len(matrix[0])):
-            for variation in variations:
-                if match_at_position(
+            for variation_data in variations_data:
+                if _match_at_position_cached(
                     matrix,
-                    variation,
+                    variation_data,
                     x,
                     y,
                     color_number,
                     matrix_x_len,
                     matrix_y_len,
                 ):
-                    figure = BoardFigure(figure_name, x, y, color_number, variation)
-                    board_figures.append(figure)
+                    cached_matches.append((x, y, variation_data["matrix"]))
+                    board_figures.append(
+                        BoardFigure(
+                            figure_name,
+                            x,
+                            y,
+                            color_number,
+                            variation_data["matrix"],
+                        )
+                    )
+    _FIGURE_BY_NAME_CACHE[cache_key] = cached_matches
     return board_figures
 
 
 def find_figures(matrix, color_number):
+    cache_key = (_matrix_signature(matrix), color_number)
+    cached = _FIGURES_CACHE.get(cache_key)
+    if cached is not None:
+        return [
+            BoardFigure(name, x, y, color_number, variation)
+            for name, x, y, variation in cached
+        ]
     board_figures = []
     matrix_x_len = len(matrix)
     matrix_y_len = len(matrix[0])
+    cached_matches = []
     for name, figure in figures.items():
-        variations = generate_variations(figure)
+        _ensure_variation_cache(name)
+        variations_data = _VARIATION_DATA_CACHE[name]
         for x in range(len(matrix)):
             for y in range(len(matrix[0])):
-                for variation in variations:
-
-                    if match_at_position(
+                for variation_data in variations_data:
+                    if _match_at_position_cached(
                         matrix,
-                        variation,
+                        variation_data,
                         x,
                         y,
                         color_number,
@@ -253,8 +345,15 @@ def find_figures(matrix, color_number):
                         #    f"Figura {name} encontrada en posición ({x}, {y}) con color {color_number}"
                         # )
                         # print(variation)
-                        figure = BoardFigure(name, x, y, color_number, variation)
-                        board_figures.append(figure)
+                        cached_matches.append(
+                            (name, x, y, variation_data["matrix"])
+                        )
+                        board_figures.append(
+                            BoardFigure(
+                                name, x, y, color_number, variation_data["matrix"]
+                            )
+                        )
+    _FIGURES_CACHE[cache_key] = cached_matches
     return board_figures
 
 

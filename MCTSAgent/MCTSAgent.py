@@ -203,10 +203,21 @@ class MontecarloPlayer:
         return exploitation + exploration
 
     def _select_best_child(self, node):
+        parent_visits = node.visits
+        log_parent = math.log(parent_visits) if parent_visits > 1 else 0.0
+        exploration_constant = self.exploration_constant
+
         best_score = None
         best_childs = []
         for child in node.childs:
-            score = self._uct_score(node, child)
+            if child.visits == 0:
+                score = float("inf")
+            else:
+                exploitation = child.value / child.visits
+                exploration = exploration_constant * math.sqrt(
+                    log_parent / child.visits
+                )
+                score = exploitation + exploration
             if best_score is None or score > best_score:
                 best_score = score
                 best_childs = [child]
