@@ -1,6 +1,11 @@
 import math
+import os
 import random
 import time
+
+
+class StateIsolationError(Exception):
+    pass
 
 
 class NaturalNumbersIterator:
@@ -44,12 +49,23 @@ class MonteCarloPlayer:
         exploration_constant=1.4,
         rollout_limit=None,
         rng=None,
+        strict_state_isolation=None,
     ):
         self.node_ids = iter(NaturalNumbersIterator())
         self.adapter = adapter
         self.exploration_constant = exploration_constant
         self.rollout_limit = rollout_limit
         self.rng = rng or random.Random()
+        if strict_state_isolation is None:
+            env_value = os.getenv("MCTS_STRICT_STATE_ISOLATION", "0")
+            self.strict_state_isolation = env_value.lower() in {
+                "1",
+                "true",
+                "yes",
+                "on",
+            }
+        else:
+            self.strict_state_isolation = strict_state_isolation
         initial_state = self.adapter.clone_state(self.adapter.get_initial_state())
         self.action_tree = self._build_root(initial_state)
         self.action_tree_depth = 0
@@ -58,8 +74,10 @@ class MonteCarloPlayer:
 
     def init_tree_nodes(self):
         if self.action_tree.untried_actions is None:
-            self.action_tree.untried_actions = self.adapter.get_possible_actions(
-                self.action_tree.get_simulation_state()
+            state = self.action_tree.get_simulation_state()
+            self.action_tree.untried_actions = self._safe_get_possible_actions(
+                state,
+                operation="init_tree_nodes:get_possible_actions",
             )
 
     def reset_root(self, state):
@@ -153,14 +171,18 @@ class MonteCarloPlayer:
 
     def expand_node(self, action_node):
         if action_node.untried_actions is None:
-            action_node.untried_actions = self.adapter.get_possible_actions(
-                action_node.get_simulation_state()
+            action_node.untried_actions = self._safe_get_possible_actions(
+                action_node.get_simulation_state(),
+                operation="expand_node:get_possible_actions(parent)",
             )
         if len(action_node.untried_actions) == 0:
             return None
         action = action_node.untried_actions.pop()
-        new_state = self.adapter.apply_action(
-            action_node.get_simulation_state(), action
+        parent_state = action_node.get_simulation_state()
+        new_state = self._safe_apply_action(
+            parent_state,
+            action,
+            operation="expand_node:apply_action",
         )
         new_level = action_node.level + 1
         child = Node(
@@ -170,7 +192,10 @@ class MonteCarloPlayer:
             new_state,
             self.node_ids.__next__(),
             new_level,
-            untried_actions=self.adapter.get_possible_actions(new_state),
+            untried_actions=self._safe_get_possible_actions(
+                new_state,
+                operation="expand_node:get_possible_actions(child)",
+            ),
         )
         action_node.children.append(child)
         self.set_action_tree_depth(new_level)
@@ -184,7 +209,10 @@ class MonteCarloPlayer:
             state,
             self.node_ids.__next__(),
             0,
-            untried_actions=self.adapter.get_possible_actions(state),
+            untried_actions=self._safe_get_possible_actions(
+                state,
+                operation="build_root:get_possible_actions",
+            ),
         )
 
     def _select(self, node):
@@ -241,6 +269,32 @@ class MonteCarloPlayer:
             current.visits += 1
             current.value += reward
             current = current.parent
+
+    def _safe_get_possible_actions(self, state, operation):
+        if not self.strict_state_isolation:
+            return self.adapter.get_possible_actions(state)
+        state_snapshot = self.adapter.clone_state(state)
+        possible_actions = self.adapter.get_possible_actions(state)
+        self._ensure_state_unchanged(state_snapshot, state, operation)
+        return possible_actions
+
+    def _safe_apply_action(self, state, action, operation):
+        if not self.strict_state_isolation:
+            return self.adapter.apply_action(state, action)
+        state_snapshot = self.adapter.clone_state(state)
+        new_state = self.adapter.apply_action(state, action)
+        self._ensure_state_unchanged(state_snapshot, state, operation)
+        if new_state is state:
+            raise StateIsolationError(
+                f"State isolation violation during {operation}: apply_action returned the same state object"
+            )
+        return new_state
+
+    def _ensure_state_unchanged(self, state_snapshot, current_state, operation):
+        if state_snapshot != current_state:
+            raise StateIsolationError(
+                f"State isolation violation during {operation}: input state was mutated"
+            )
 
 
 class Node:

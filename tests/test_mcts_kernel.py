@@ -1,6 +1,8 @@
 import random
 
-from mcts_agent.core import MCTSAdapter, MonteCarloPlayer
+import pytest
+
+from mcts_agent.core import MCTSAdapter, MonteCarloPlayer, StateIsolationError
 
 
 class SimpleBanditAdapter(MCTSAdapter):
@@ -134,6 +136,82 @@ class EqualRewardAdapter(MCTSAdapter):
         return 1.0
 
 
+class MutatingApplyAdapter(MCTSAdapter):
+    def get_initial_state(self):
+        return {"depth": 0, "root_player": 0, "touches": 0}
+
+    def clone_state(self, state):
+        return dict(state)
+
+    def get_possible_actions(self, state):
+        return ["go"] if state["depth"] == 0 else []
+
+    def apply_action(self, state, action):
+        state["touches"] += 1
+        return {
+            "depth": 1,
+            "root_player": state["root_player"],
+            "touches": state["touches"],
+            "action": action,
+        }
+
+    def is_terminal(self, state):
+        return state["depth"] >= 1
+
+    def get_player_turn(self, state):
+        return state["root_player"]
+
+    def rollout(self, state, root_player, rng):
+        return 0.0
+
+
+class MutatingGetActionsAdapter(MCTSAdapter):
+    def get_initial_state(self):
+        return {"depth": 0, "root_player": 0, "calls": 0}
+
+    def clone_state(self, state):
+        return dict(state)
+
+    def get_possible_actions(self, state):
+        state["calls"] += 1
+        return ["x"] if state["depth"] == 0 else []
+
+    def apply_action(self, state, action):
+        return {"depth": 1, "root_player": state["root_player"], "calls": 0}
+
+    def is_terminal(self, state):
+        return state["depth"] >= 1
+
+    def get_player_turn(self, state):
+        return state["root_player"]
+
+    def rollout(self, state, root_player, rng):
+        return 0.0
+
+
+class AliasingApplyAdapter(MCTSAdapter):
+    def get_initial_state(self):
+        return {"depth": 0, "root_player": 0}
+
+    def clone_state(self, state):
+        return dict(state)
+
+    def get_possible_actions(self, state):
+        return ["same"] if state["depth"] == 0 else []
+
+    def apply_action(self, state, action):
+        return state
+
+    def is_terminal(self, state):
+        return state["depth"] >= 1
+
+    def get_player_turn(self, state):
+        return state["root_player"]
+
+    def rollout(self, state, root_player, rng):
+        return 0.0
+
+
 def test_search_best_move_prefers_higher_value_action():
     player = MonteCarloPlayer(
         SimpleBanditAdapter(),
@@ -224,3 +302,47 @@ def test_tie_break_on_best_visits_can_choose_multiple_children():
         choices.add(player.get_best_move().action)
 
     assert choices == {"a", "b"}
+
+
+def test_strict_state_isolation_accepts_pure_adapter():
+    player = MonteCarloPlayer(
+        SimpleBanditAdapter(),
+        exploration_constant=0.0,
+        rng=random.Random(0),
+        strict_state_isolation=True,
+    )
+
+    best = player.search_best_move(rollouts=20)
+
+    assert best is not None
+
+
+def test_strict_state_isolation_raises_when_apply_action_mutates_input_state():
+    player = MonteCarloPlayer(
+        MutatingApplyAdapter(),
+        rng=random.Random(0),
+        strict_state_isolation=True,
+    )
+
+    with pytest.raises(StateIsolationError, match="apply_action"):
+        player.search_best_move(rollouts=1)
+
+
+def test_strict_state_isolation_raises_when_get_possible_actions_mutates_state():
+    with pytest.raises(StateIsolationError, match="get_possible_actions"):
+        MonteCarloPlayer(
+            MutatingGetActionsAdapter(),
+            rng=random.Random(0),
+            strict_state_isolation=True,
+        )
+
+
+def test_strict_state_isolation_raises_when_apply_action_returns_same_object():
+    player = MonteCarloPlayer(
+        AliasingApplyAdapter(),
+        rng=random.Random(0),
+        strict_state_isolation=True,
+    )
+
+    with pytest.raises(StateIsolationError, match="same state object"):
+        player.search_best_move(rollouts=1)
