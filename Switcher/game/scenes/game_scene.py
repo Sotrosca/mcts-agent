@@ -107,16 +107,16 @@ class GameScene:
                 # Create a profiler
                 pr = cProfile.Profile()
                 pr.enable()
-                ia_player = MonteCarloPlayer(
+                ai_player = MonteCarloPlayer(
                     adapter=SwitcherMCTSAdapter(self.simulation)
                 )
 
-                print(len(ia_player.action_tree.childs))
-                qty_possible_actions = len(ia_player.action_tree.childs)
-                ia_player.explore_action_tree(
+                print(len(ai_player.action_tree.children))
+                qty_possible_actions = len(ai_player.action_tree.children)
+                ai_player.explore_action_tree(
                     epochs=qty_possible_actions * 10, log=False
                 )
-                best_move = ia_player.get_best_move()
+                best_move = ai_player.get_best_move()
 
                 pr.disable()
 
@@ -132,7 +132,7 @@ class GameScene:
                 """print(f"Best move: {best_move}")
                 print(best_move.action)
                 total_visits = 0
-                for node in ia_player.action_tree.childs:
+                for node in ai_player.action_tree.children:
                     total_visits += node.visits
                     print(str(node))
 

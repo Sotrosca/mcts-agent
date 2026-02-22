@@ -134,13 +134,13 @@ class MonteCarloPlayer:
             self._backpropagate(action_node, reward)
 
     def get_best_move(self):
-        if not self.action_tree.has_childs():
+        if not self.action_tree.has_children():
             return None
         best_visits = max(child.visits for child in self.action_tree.children)
-        best_childs = [
+        best_children = [
             child for child in self.action_tree.children if child.visits == best_visits
         ]
-        return self.rng.choice(best_childs)
+        return self.rng.choice(best_children)
 
     def set_action_tree_depth(self, level):
         if level > self.action_tree_depth:
@@ -150,7 +150,7 @@ class MonteCarloPlayer:
         move_sequence = []
         node = self.action_tree
 
-        while node.has_childs():
+        while node.has_children():
             best_child = self._best_child_by_visits(node)
             move_sequence.append(best_child)
             node = best_child
@@ -219,7 +219,7 @@ class MonteCarloPlayer:
         exploration_constant = self.exploration_constant
 
         best_score = None
-        best_childs = []
+        best_children = []
         for child in node.children:
             if child.visits == 0:
                 score = float("inf")
@@ -231,15 +231,15 @@ class MonteCarloPlayer:
                 score = exploitation + exploration
             if best_score is None or score > best_score:
                 best_score = score
-                best_childs = [child]
+                best_children = [child]
             elif score == best_score:
-                best_childs.append(child)
-        return self.rng.choice(best_childs)
+                best_children.append(child)
+            return self.rng.choice(best_children)
 
     def _best_child_by_visits(self, node):
         best_visits = max(child.visits for child in node.children)
-        best_childs = [child for child in node.children if child.visits == best_visits]
-        return self.rng.choice(best_childs)
+        best_children = [child for child in node.children if child.visits == best_visits]
+        return self.rng.choice(best_children)
 
     def _backpropagate(self, node, reward):
         current = node

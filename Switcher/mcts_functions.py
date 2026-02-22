@@ -3,34 +3,32 @@ import random
 
 import numpy as np
 
-import numpy as np
-
 from mcts_agent import Node
 from Switcher.logic.board import Cell
 from Switcher.mcts_simulation import SwitcherSimulation
 
 
 def selection_function(tree_nodes: Node):
-    UCT_constant = 1
+    uct_constant = 1
     selected_node = tree_nodes
 
     while selected_node.has_childs():
-        selection_value_UCT = -100000000
+        selection_value_uct = -100000000
         winner_node = None
-        best_childs = selected_node.childs
-        best_childs_without_love = list(filter(lambda x: x.visits == 0, best_childs))
+        best_children = selected_node.children
+        unvisited_children = [child for child in best_children if child.visits == 0]
 
-        if len(best_childs_without_love) > 0:
-            selected_node = random.choice(best_childs_without_love)
+        if len(unvisited_children) > 0:
+            selected_node = random.choice(unvisited_children)
 
         else:
-            for child in best_childs:
+            for child in best_children:
                 child_success_ratio = (child.value) / (child.visits)
                 log_ratio = (np.log(selected_node.visits) / child.visits) ** 0.5
-                child_value_UCT = child_success_ratio + UCT_constant * log_ratio
+                child_value_uct = child_success_ratio + uct_constant * log_ratio
 
-                if child_value_UCT > selection_value_UCT:
-                    selection_value_UCT = child_value_UCT
+                if child_value_uct > selection_value_uct:
+                    selection_value_uct = child_value_uct
                     winner_node = child
 
             selected_node = winner_node
@@ -39,7 +37,7 @@ def selection_function(tree_nodes: Node):
 
 
 def expansion_function(node):
-    return node.visits == 1 or len(node.childs) == 1
+    return node.visits == 1 or len(node.children) == 1
 
 
 def simulation_function(action_node: Node, simulation_copy: SwitcherSimulation):
@@ -47,7 +45,7 @@ def simulation_function(action_node: Node, simulation_copy: SwitcherSimulation):
     simulation_copy.set_state(state)
     i = 0
 
-    while simulation_copy.player_winner() == None and i < 10:
+    while simulation_copy.player_winner() is None and i < 10:
         possible_actions = simulation_copy.get_possible_actions()
         action = random.choice(possible_actions)
         simulation_copy.execute_action(action)
@@ -129,16 +127,16 @@ def retropropagation_function_2(
 
 def movement_choice_function(tree_nodes: Node):
     best_child_visits = -1
-    best_childs = None
+    best_children = None
 
-    for child in tree_nodes.childs:
+    for child in tree_nodes.children:
         if child.visits > best_child_visits:
             best_child_visits = child.visits
-            best_childs = [child]
+            best_children = [child]
         elif child.visits == best_child_visits:
-            best_childs.append(child)
+            best_children.append(child)
 
-    return random.choice(best_childs)
+    return random.choice(best_children)
 
 
 class SwitcherMCTSAdapter:

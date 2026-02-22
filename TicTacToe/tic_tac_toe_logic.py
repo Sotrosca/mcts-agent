@@ -38,7 +38,7 @@ class TicTacToe():
         self.history[self.turn] = action
 
     def get_possible_actions(self):
-        if self.player_winner() != None:
+        if self.player_winner() is not None:
             return []
         possible_actions = []
         for i in range(3):
@@ -74,7 +74,7 @@ class TicTacToe():
     def player_winner(self):
         for line_index in self.line_indices:
             player_winner = self.get_player_line_winner(line_index)
-            if player_winner != None:
+            if player_winner is not None:
                 return player_winner
         if self.turn == 9:
             return '-'

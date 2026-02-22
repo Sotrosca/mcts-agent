@@ -1,29 +1,30 @@
 import copy
-import random
-import numpy as np
 import pickle
+import random
+
+import numpy as np
 
 def selection_function(tree_nodes):
-    UCT_constant = 110
+    uct_constant = 110
     selected_node = tree_nodes
 
     while selected_node.has_childs():
-        selection_value_UCT = -1
+        selection_value_uct = -1
         winner_node = None
-        best_childs = selected_node.childs
-        best_childs_without_love = list(filter(lambda x: x.visits == 0, best_childs))
+        best_children = selected_node.children
+        unvisited_children = [child for child in best_children if child.visits == 0]
 
-        if len(best_childs_without_love) > 0:
-            selected_node = random.choice(best_childs_without_love)
+        if len(unvisited_children) > 0:
+            selected_node = random.choice(unvisited_children)
 
         else:
-            for child in best_childs:
+            for child in best_children:
                 child_success_ratio = (child.value) / (child.visits)
                 log_ratio = (np.log(selected_node.visits) / child.visits) ** 0.5
-                child_value_UCT = child_success_ratio + UCT_constant * log_ratio
+                child_value_uct = child_success_ratio + uct_constant * log_ratio
 
-                if child_value_UCT > selection_value_UCT:
-                    selection_value_UCT = child_value_UCT
+                if child_value_uct > selection_value_uct:
+                    selection_value_uct = child_value_uct
                     winner_node = child
 
             selected_node = winner_node
@@ -32,7 +33,7 @@ def selection_function(tree_nodes):
 
 
 def expansion_function(node):
-    return node.visits == 1 or len(node.childs) == 1
+    return node.visits == 1 or len(node.children) == 1
 
 def simulation_function(action_node, simulation_copy):
     simulation_copy.set_state(pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1)))
@@ -64,7 +65,7 @@ def movement_choice_function(tree_nodes):
     best_child_visits = -1
     best_child = None
 
-    for child in tree_nodes.childs:
+    for child in tree_nodes.children:
         if child.visits > best_child_visits:
             best_child_visits = child.visits
             best_child = child
