@@ -5,13 +5,13 @@ import time
 
 class NaturalNumbersIterator:
     def __iter__(self):
-        self.a = 0
+        self.current = 0
         return self
 
     def __next__(self):
-        x = self.a
-        self.a += 1
-        return x
+        value = self.current
+        self.current += 1
+        return value
 
 
 class MCTSAdapter:
@@ -45,7 +45,7 @@ class MonteCarloPlayer:
         rollout_limit=None,
         rng=None,
     ):
-        self.ids_nodes = iter(NaturalNumbersIterator())
+        self.node_ids = iter(NaturalNumbersIterator())
         self.adapter = adapter
         self.exploration_constant = exploration_constant
         self.rollout_limit = rollout_limit
@@ -63,7 +63,7 @@ class MonteCarloPlayer:
             )
 
     def reset_root(self, state):
-        self.ids_nodes = iter(NaturalNumbersIterator())
+        self.node_ids = iter(NaturalNumbersIterator())
         self.action_tree = self._build_root(self.adapter.clone_state(state))
         self.action_tree_depth = 0
         self.root_player = None
@@ -71,12 +71,15 @@ class MonteCarloPlayer:
         while self.action_tree.untried_actions:
             self.expand_node(self.action_tree)
 
-    def get_child_by_id(self, id_child, parent=None):
+    def get_child_by_id(self, child_id, parent=None):
         parent = parent or self.action_tree
-        for child in parent.childs:
-            if child.id == id_child:
+        for child in parent.children:
+            if child.id == child_id:
                 return child
         return None
+
+    def get_child_by_id_legacy(self, id_child, parent=None):
+        return self.get_child_by_id(id_child, parent)
 
     def search_best_move(self, time_to_search=None, rollouts=None, log=False):
         if time_to_search is None and rollouts is None:
@@ -104,13 +107,21 @@ class MonteCarloPlayer:
         self.action_tree = action_node
         self.action_tree.parent = None
 
-    def explore_action_tree(self, epochs=1000, log=True, log_frecuency=100):
+    def explore_action_tree(
+        self,
+        epochs=1000,
+        log=True,
+        log_frequency=100,
+        log_frecuency=None,
+    ):
+        if log_frecuency is not None:
+            log_frequency = log_frecuency
         if self.root_player is None:
             self.root_player = self.adapter.get_player_turn(
                 self.action_tree.get_simulation_state()
             )
         for epoch in range(epochs):
-            if log and epoch % log_frecuency == 0:
+            if log and epoch % log_frequency == 0:
                 print(epoch)
             action_node = self._select(self.action_tree)
             if action_node is None:
@@ -125,9 +136,9 @@ class MonteCarloPlayer:
     def get_best_move(self):
         if not self.action_tree.has_childs():
             return None
-        best_visits = max(child.visits for child in self.action_tree.childs)
+        best_visits = max(child.visits for child in self.action_tree.children)
         best_childs = [
-            child for child in self.action_tree.childs if child.visits == best_visits
+            child for child in self.action_tree.children if child.visits == best_visits
         ]
         return self.rng.choice(best_childs)
 
@@ -163,11 +174,11 @@ class MonteCarloPlayer:
             [],
             action,
             new_state,
-            self.ids_nodes.__next__(),
+            self.node_ids.__next__(),
             new_level,
             untried_actions=self.adapter.get_possible_actions(new_state),
         )
-        action_node.childs.append(child)
+        action_node.children.append(child)
         self.set_action_tree_depth(new_level)
         return child
 
@@ -177,7 +188,7 @@ class MonteCarloPlayer:
             [],
             None,
             state,
-            self.ids_nodes.__next__(),
+            self.node_ids.__next__(),
             0,
             untried_actions=self.adapter.get_possible_actions(state),
         )
@@ -188,7 +199,7 @@ class MonteCarloPlayer:
             if current.untried_actions:
                 child = self.expand_node(current)
                 return child if child is not None else current
-            if not current.childs:
+            if not current.children:
                 return current
             current = self._select_best_child(current)
         return current
@@ -209,7 +220,7 @@ class MonteCarloPlayer:
 
         best_score = None
         best_childs = []
-        for child in node.childs:
+        for child in node.children:
             if child.visits == 0:
                 score = float("inf")
             else:
@@ -226,8 +237,8 @@ class MonteCarloPlayer:
         return self.rng.choice(best_childs)
 
     def _best_child_by_visits(self, node):
-        best_visits = max(child.visits for child in node.childs)
-        best_childs = [child for child in node.childs if child.visits == best_visits]
+        best_visits = max(child.visits for child in node.children)
+        best_childs = [child for child in node.children if child.visits == best_visits]
         return self.rng.choice(best_childs)
 
     def _backpropagate(self, node, reward):
@@ -242,7 +253,7 @@ class Node:
     def __init__(
         self,
         parent,
-        childs,
+        children,
         action,
         simulation_state,
         id_node,
@@ -250,7 +261,8 @@ class Node:
         untried_actions=None,
     ):
         self.parent = parent  # Node
-        self.childs = childs  # Node[]
+        self.children = children  # Node[]
+        self.childs = self.children  # Backward compatibility alias
         self.action = action  # Accion realizada para llegar al estado representado en simulation_state
         self.simulation_state = (
             simulation_state  # Estado de la simulacion con la action ya realizada
@@ -273,16 +285,22 @@ class Node:
             + str(self.value)
         )
 
+    def has_children(self):
+        return self.children is not None and len(self.children) > 0
+
     def has_childs(self):
-        return self.childs is not None and len(self.childs) > 0
+        return self.has_children()
+
+    def get_children_without_visits(self):
+        children_without_visits = []
+        for child in self.children:
+            if child.visits == 0:
+                children_without_visits.append(child)
+
+        return children_without_visits
 
     def get_childs_without_visits(self):
-        childs_without_love = []
-        for child in self.childs:
-            if child.visits == 0:
-                childs_without_love.append(child)
-
-        return childs_without_love
+        return self.get_children_without_visits()
 
     def has_parent(self):
         return self.parent is not None

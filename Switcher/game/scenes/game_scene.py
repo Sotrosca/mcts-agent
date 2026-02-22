@@ -5,7 +5,7 @@ import sys
 
 import pygame
 
-from MCTSAgent.mcts_agent import MonteCarloPlayer
+from mcts_agent import MonteCarloPlayer
 from Switcher.game import Config, Game
 from Switcher.game.renderer import GameRenderer
 from Switcher.game.state import ActionState

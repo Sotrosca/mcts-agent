@@ -1,4 +1,4 @@
-from MCTSAgent.mcts_agent import MonteCarloPlayer
+from mcts_agent import MonteCarloPlayer
 from Switcher.logic.logic import Switcher
 from Switcher.mcts_functions import SwitcherMCTSAdapter
 from Switcher.mcts_simulation import SwitcherSimulation
