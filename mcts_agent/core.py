@@ -228,7 +228,7 @@ class MonteCarloPlayer:
                 best_children = [child]
             elif score == best_score:
                 best_children.append(child)
-            return self.rng.choice(best_children)
+        return self.rng.choice(best_children)
 
     def _best_child_by_visits(self, node):
         best_visits = max(child.visits for child in node.children)
