@@ -1,10 +1,10 @@
 import copy
 
-from Switcher.logic import Switcher
-from Switcher.logic.figures import BoardFigure
-from Switcher.logic.moves import SwitchMovementCard
-from Switcher.player.player import Player
-from Switcher.player.player_move import MatchFigureMove, PassMove, SwitchMove
+from switcher.logic import Switcher
+from switcher.logic.figures import BoardFigure
+from switcher.logic.moves import SwitchMovementCard
+from switcher.player.player import Player
+from switcher.player.player_move import MatchFigureMove, PassMove, SwitchMove
 
 
 class SwitchCells:

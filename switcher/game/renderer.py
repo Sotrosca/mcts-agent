@@ -3,9 +3,9 @@
 import pygame
 import pygame.draw
 
-from Switcher.game import Config, Game
-from Switcher.game.state import ActionState
-from Switcher.logic.figures import figures
+from switcher.game import Config, Game
+from switcher.game.state import ActionState
+from switcher.logic.figures import figures
 
 
 class GameRenderer:

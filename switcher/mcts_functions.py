@@ -4,15 +4,15 @@ import random
 import numpy as np
 
 from mcts_agent import Node
-from Switcher.logic.board import Cell
-from Switcher.mcts_simulation import SwitcherSimulation
+from switcher.logic.board import Cell
+from switcher.mcts_simulation import SwitcherSimulation
 
 
 def selection_function(tree_nodes: Node):
     uct_constant = 1
     selected_node = tree_nodes
 
-    while selected_node.has_childs():
+    while selected_node.has_children():
         selection_value_uct = -100000000
         winner_node = None
         best_children = selected_node.children

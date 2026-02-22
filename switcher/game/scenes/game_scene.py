@@ -6,12 +6,12 @@ import sys
 import pygame
 
 from mcts_agent import MonteCarloPlayer
-from Switcher.game import Config, Game
-from Switcher.game.renderer import GameRenderer
-from Switcher.game.state import ActionState
-from Switcher.logic.figures import BoardFigure, figures
-from Switcher.mcts_functions import SwitcherMCTSAdapter
-from Switcher.mcts_simulation import SwitcherSimulation
+from switcher.game import Config, Game
+from switcher.game.renderer import GameRenderer
+from switcher.game.state import ActionState
+from switcher.logic.figures import BoardFigure, figures
+from switcher.mcts_functions import SwitcherMCTSAdapter
+from switcher.mcts_simulation import SwitcherSimulation
 
 
 class GameScene:

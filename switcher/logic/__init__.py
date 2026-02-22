@@ -1,4 +1,4 @@
-from Switcher.logic.logic import Switcher
+from switcher.logic.logic import Switcher
 
 if __name__ == "__main__":
     game = Switcher(1)

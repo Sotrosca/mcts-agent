@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from container_depot_simulation import Simulation
 from example_mcts_functions import ContainerDepotMCTSAdapter
-from MCTSAgent.mcts_agent import MonteCarloPlayer
+from mcts_agent.core import MonteCarloPlayer
 
 
 def manhattan_distance(x_position, y_position):

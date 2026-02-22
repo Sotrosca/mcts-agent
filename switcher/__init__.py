@@ -1,4 +1,4 @@
-from Switcher.mcts_functions import SwitcherMCTSAdapter
-from Switcher.mcts_simulation import SwitcherSimulation
+from .mcts_functions import SwitcherMCTSAdapter
+from .mcts_simulation import SwitcherSimulation
 
 __all__ = ["SwitcherMCTSAdapter", "SwitcherSimulation"]

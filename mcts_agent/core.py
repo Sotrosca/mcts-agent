@@ -78,9 +78,6 @@ class MonteCarloPlayer:
                 return child
         return None
 
-    def get_child_by_id_legacy(self, id_child, parent=None):
-        return self.get_child_by_id(id_child, parent)
-
     def search_best_move(self, time_to_search=None, rollouts=None, log=False):
         if time_to_search is None and rollouts is None:
             rollouts = 1000
@@ -112,10 +109,7 @@ class MonteCarloPlayer:
         epochs=1000,
         log=True,
         log_frequency=100,
-        log_frecuency=None,
     ):
-        if log_frecuency is not None:
-            log_frequency = log_frecuency
         if self.root_player is None:
             self.root_player = self.adapter.get_player_turn(
                 self.action_tree.get_simulation_state()
@@ -262,7 +256,6 @@ class Node:
     ):
         self.parent = parent  # Node
         self.children = children  # Node[]
-        self.childs = self.children  # Backward compatibility alias
         self.action = action  # Accion realizada para llegar al estado representado en simulation_state
         self.simulation_state = (
             simulation_state  # Estado de la simulacion con la action ya realizada
@@ -288,9 +281,6 @@ class Node:
     def has_children(self):
         return self.children is not None and len(self.children) > 0
 
-    def has_childs(self):
-        return self.has_children()
-
     def get_children_without_visits(self):
         children_without_visits = []
         for child in self.children:
@@ -299,15 +289,9 @@ class Node:
 
         return children_without_visits
 
-    def get_childs_without_visits(self):
-        return self.get_children_without_visits()
-
     def has_parent(self):
         return self.parent is not None
 
     def get_simulation_state(self):
         return self.simulation_state
 
-
-# Backward compatibility alias
-MontecarloPlayer = MonteCarloPlayer

@@ -1,16 +1,16 @@
 import numpy as np
 
-from Switcher.logic.board import Board
-from Switcher.logic.figures import (
+from switcher.logic.board import Board
+from switcher.logic.figures import (
     BoardFigure,
     figures_deck,
     find_figure,
     find_figure_by_name,
     find_figures,
 )
-from Switcher.logic.moves import SwitchMovementCard, moves_deck
-from Switcher.player.player import Player
-from Switcher.player.player_move import (
+from switcher.logic.moves import SwitchMovementCard, moves_deck
+from switcher.player.player import Player
+from switcher.player.player_move import (
     MatchFigureMove,
     PassMove,
     PlayerMove,

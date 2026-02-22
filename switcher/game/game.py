@@ -1,7 +1,7 @@
-from Switcher.logic.figures import BoardFigure
-from Switcher.logic.logic import Switcher
-from Switcher.player.player import Player
-from Switcher.player.player_move import MatchFigureMove, PassMove, SwitchMove
+from switcher.logic.figures import BoardFigure
+from switcher.logic.logic import Switcher
+from switcher.player.player import Player
+from switcher.player.player_move import MatchFigureMove, PassMove, SwitchMove
 
 
 class Game:

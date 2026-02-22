@@ -1,4 +1,4 @@
-from Switcher.logic.moves import SwitchMovementCard
+from switcher.logic.moves import SwitchMovementCard
 
 
 class Player:

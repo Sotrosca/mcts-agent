@@ -1,4 +1,4 @@
-from Switcher.logic.figures import BoardFigure
+from switcher.logic.figures import BoardFigure
 
 
 class ActionState:

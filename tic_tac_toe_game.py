@@ -1,7 +1,7 @@
 import pygame
 from mcts_agent import MonteCarloPlayer
 from tic_tac_toe import TicTacToe, TicTacToeMCTSAdapter
-from TicTacToe.tic_tac_toe_game_render_manager import GameRenderManager, Tile
+from tic_tac_toe.tic_tac_toe_game_render_manager import GameRenderManager, Tile
 
 tic_tac_toe = TicTacToe()
 player = MonteCarloPlayer(TicTacToeMCTSAdapter(tic_tac_toe))

@@ -2,9 +2,9 @@ import sys
 
 import pygame
 
-from Switcher.game import Game
-from Switcher.game.scenes.game_scene import GameScene
-from Switcher.mcts_simulation import SwitcherSimulation
+from switcher.game import Game
+from switcher.game.scenes.game_scene import GameScene
+from switcher.mcts_simulation import SwitcherSimulation
 
 if __name__ == "__main__":
     pygame.init()
