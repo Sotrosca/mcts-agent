@@ -5,7 +5,7 @@ import numpy as np
 
 import numpy as np
 
-from MCTSAgent.MCTSAgent import Node
+from MCTSAgent.mcts_agent import Node
 from Switcher.logic.board import Cell
 from Switcher.mcts_simulation import SwitcherSimulation
 

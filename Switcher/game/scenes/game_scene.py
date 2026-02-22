@@ -5,7 +5,7 @@ import sys
 
 import pygame
 
-from MCTSAgent.MCTSAgent import MontecarloPlayer
+from MCTSAgent.mcts_agent import MonteCarloPlayer
 from Switcher.game import Config, Game
 from Switcher.game.renderer import GameRenderer
 from Switcher.game.state import ActionState
@@ -107,7 +107,7 @@ class GameScene:
                 # Create a profiler
                 pr = cProfile.Profile()
                 pr.enable()
-                ia_player = MontecarloPlayer(
+                ia_player = MonteCarloPlayer(
                     adapter=SwitcherMCTSAdapter(self.simulation)
                 )
 

@@ -1,4 +1,4 @@
-from MCTSAgent.MCTSAgent import MontecarloPlayer
+from MCTSAgent.mcts_agent import MonteCarloPlayer
 from Switcher.logic.logic import Switcher
 from Switcher.mcts_functions import SwitcherMCTSAdapter
 from Switcher.mcts_simulation import SwitcherSimulation
@@ -10,11 +10,11 @@ simulation = SwitcherSimulation(game)
 adapter_1 = SwitcherMCTSAdapter(simulation)
 adapter_2 = SwitcherMCTSAdapter(simulation)
 
-player_1 = MontecarloPlayer(
+player_1 = MonteCarloPlayer(
     adapter=adapter_1,
 )
 
-player_2 = MontecarloPlayer(
+player_2 = MonteCarloPlayer(
     adapter=adapter_2,
 )
 
