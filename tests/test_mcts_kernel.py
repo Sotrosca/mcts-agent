@@ -65,6 +65,75 @@ class ChainAdapter(MCTSAdapter):
         return self.reward
 
 
+class TerminalRootAdapter(MCTSAdapter):
+    def get_initial_state(self):
+        return {"terminal": True, "root_player": 0}
+
+    def clone_state(self, state):
+        return dict(state)
+
+    def get_possible_actions(self, state):
+        return []
+
+    def apply_action(self, state, action):
+        return dict(state)
+
+    def is_terminal(self, state):
+        return True
+
+    def get_player_turn(self, state):
+        return state["root_player"]
+
+    def rollout(self, state, root_player, rng):
+        return 0.5
+
+
+class MultiArmAdapter(MCTSAdapter):
+    def get_initial_state(self):
+        return {"depth": 0, "root_player": 0}
+
+    def clone_state(self, state):
+        return dict(state)
+
+    def get_possible_actions(self, state):
+        return ["bad", "good_1", "good_2"] if state["depth"] == 0 else []
+
+    def apply_action(self, state, action):
+        return {"depth": 1, "root_player": 0, "action": action}
+
+    def is_terminal(self, state):
+        return state["depth"] >= 1
+
+    def get_player_turn(self, state):
+        return state["root_player"]
+
+    def rollout(self, state, root_player, rng):
+        return 0.0 if state["action"] == "bad" else 1.0
+
+
+class EqualRewardAdapter(MCTSAdapter):
+    def get_initial_state(self):
+        return {"depth": 0, "root_player": 0}
+
+    def clone_state(self, state):
+        return dict(state)
+
+    def get_possible_actions(self, state):
+        return ["a", "b"] if state["depth"] == 0 else []
+
+    def apply_action(self, state, action):
+        return {"depth": 1, "root_player": 0, "action": action}
+
+    def is_terminal(self, state):
+        return state["depth"] >= 1
+
+    def get_player_turn(self, state):
+        return state["root_player"]
+
+    def rollout(self, state, root_player, rng):
+        return 1.0
+
+
 def test_search_best_move_prefers_higher_value_action():
     player = MonteCarloPlayer(
         SimpleBanditAdapter(),
@@ -105,3 +174,53 @@ def test_get_child_by_id_returns_none_for_unknown_id():
     child = player.get_child_by_id(999999)
 
     assert child is None
+
+
+def test_terminal_root_returns_no_move_and_still_updates_visits():
+    player = MonteCarloPlayer(TerminalRootAdapter(), rng=random.Random(0))
+
+    best = player.search_best_move(rollouts=5)
+
+    assert best is None
+    assert player.action_tree.visits == 5
+    assert player.action_tree.value == 2.5
+
+
+def test_execute_action_on_simulation_detaches_selected_node():
+    player = MonteCarloPlayer(SimpleBanditAdapter(), rng=random.Random(0))
+    child = player.expand_node(player.action_tree)
+
+    assert child is not None
+    assert child.parent is player.action_tree
+
+    player.execute_action_on_simulation(child)
+
+    assert player.action_tree is child
+    assert player.action_tree.parent is None
+
+
+def test_select_best_child_evaluates_all_children_regression():
+    player = MonteCarloPlayer(
+        MultiArmAdapter(),
+        exploration_constant=0.0,
+        rng=random.Random(0),
+    )
+
+    best = player.search_best_move(rollouts=300)
+
+    assert best is not None
+    assert best.action in {"good_1", "good_2"}
+
+
+def test_tie_break_on_best_visits_can_choose_multiple_children():
+    choices = set()
+    for seed in range(10):
+        player = MonteCarloPlayer(
+            EqualRewardAdapter(),
+            exploration_constant=0.0,
+            rng=random.Random(seed),
+        )
+        player.search_best_move(rollouts=2)
+        choices.add(player.get_best_move().action)
+
+    assert choices == {"a", "b"}
