@@ -1,11 +1,11 @@
 import pygame
 from TicTacToe.TicTacToeLogic import TicTacToe
 from MCTSAgent.MCTSAgent import MontecarloPlayer
-from TicTacToe.TicTacToeMCTSFunctions import selection_function, expansion_function, retropropagation_function, movement_choice_function, simulation_function
+from TicTacToe.TicTacToeMCTSFunctions import TicTacToeMCTSAdapter
 from TicTacToe.TicTacToeGameRenderManager import GameRenderManager, Tile
 
 tic_tac_toe = TicTacToe()
-player = MontecarloPlayer(tic_tac_toe, selection_function, expansion_function, retropropagation_function, simulation_function, movement_choice_function)
+player = MontecarloPlayer(TicTacToeMCTSAdapter(tic_tac_toe))
 
 def execute_ia_move(ia_player):
     action_node = ia_player.search_best_move(1)
@@ -63,7 +63,7 @@ while run:
                     game_manager_render.draw_tiles()
                     game_manager_render.taken_list = pygame.sprite.Group()
                     tic_tac_toe = TicTacToe()
-                    player = MontecarloPlayer(tic_tac_toe, selection_function, expansion_function, retropropagation_function, simulation_function, movement_choice_function)
+                    player = MontecarloPlayer(TicTacToeMCTSAdapter(tic_tac_toe))
                     winner = None
                     ia_go_first = not ia_go_first
                     pygame.display.set_caption('Thinking ...') if ia_go_first else pygame.display.set_caption('Your Turn')

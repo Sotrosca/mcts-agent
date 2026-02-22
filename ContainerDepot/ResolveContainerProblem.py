@@ -1,11 +1,10 @@
+import os
+import sys
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from ContainerDepotSimulation import Simulation
-from ExampleMCTSFunctions import (
-    expansion_function,
-    movement_choice_function,
-    retropropagation_function,
-    selection_function,
-    simulation_function,
-)
+from ExampleMCTSFunctions import ContainerDepotMCTSAdapter
 
 from MCTSAgent.MCTSAgent import MontecarloPlayer
 
@@ -20,14 +19,7 @@ board = [[[1, 2, 3], [14, 9, 0], [8, 0, 0]], [[4, 5, 0], [6, 0, 0], [0, 0, 0]]]
 
 simulation = Simulation((0, 0), board, 0, manhattan_distance, [2, 4, 1])
 
-player = MontecarloPlayer(
-    simulation,
-    selection_function,
-    expansion_function,
-    retropropagation_function,
-    simulation_function,
-    movement_choice_function,
-)
+player = MontecarloPlayer(ContainerDepotMCTSAdapter(simulation))
 
 while not simulation.is_simulation_end():
     print(simulation.board)
@@ -36,7 +28,4 @@ while not simulation.is_simulation_end():
     simulation.execute_action(action_node.action)
     player.execute_action_on_simulation(action_node)
 
-"""
-simulation_function(player.action_tree, player.copy_simulation)
-print(player.copy_simulation.epochs)}
-"""
+"""Profiling helpers removed in adapter-based engine."""

@@ -1,10 +1,12 @@
-import copy
 import pickle
 import random
 
 import numpy as np
 
+import numpy as np
+
 from MCTSAgent.MCTSAgent import Node
+from Switcher.logic.board import Cell
 from Switcher.mcts_simulation import SwitcherSimulation
 
 
@@ -137,3 +139,94 @@ def movement_choice_function(tree_nodes: Node):
             best_childs.append(child)
 
     return random.choice(best_childs)
+
+
+class SwitcherMCTSAdapter:
+    def __init__(self, simulation: SwitcherSimulation, rollout_limit=10, rng=None):
+        self.simulation = pickle.loads(pickle.dumps(simulation, -1))
+        self.rollout_limit = rollout_limit
+        self.rng = rng or random.Random()
+
+    def get_initial_state(self):
+        return self.clone_state(self.simulation.get_state())
+
+    def clone_state(self, state):
+        board_state = state.get("board_state")
+        board_copy = np.empty(board_state.shape, dtype=Cell)
+        for y in range(board_state.shape[0]):
+            for x in range(board_state.shape[1]):
+                cell = board_state[y][x]
+                new_cell = Cell(cell.color)
+                new_cell.selected = cell.selected
+                new_cell.set_position(y, x)
+                board_copy[y][x] = new_cell
+
+        return {
+            "board_state": board_copy,
+            "moves_deck": list(state.get("moves_deck")),
+            "moves_discard": list(state.get("moves_discard")),
+            "last_color_played": state.get("last_color_played"),
+            "player_turn": state.get("player_turn"),
+            "turn": state.get("turn"),
+            "winner": state.get("winner"),
+            "player1_state": {
+                "figures_slots": dict(state["player1_state"]["figures_slots"]),
+                "figures_played": list(state["player1_state"]["figures_played"]),
+                "figures_blocked": dict(state["player1_state"]["figures_blocked"]),
+                "figures_deck": list(state["player1_state"]["figures_deck"]),
+                "hand": dict(state["player1_state"]["hand"]),
+                "hand_size": state["player1_state"]["hand_size"],
+                "is_blocked": state["player1_state"]["is_blocked"],
+            },
+            "player2_state": {
+                "figures_slots": dict(state["player2_state"]["figures_slots"]),
+                "figures_played": list(state["player2_state"]["figures_played"]),
+                "figures_blocked": dict(state["player2_state"]["figures_blocked"]),
+                "figures_deck": list(state["player2_state"]["figures_deck"]),
+                "hand": dict(state["player2_state"]["hand"]),
+                "hand_size": state["player2_state"]["hand_size"],
+                "is_blocked": state["player2_state"]["is_blocked"],
+            },
+        }
+
+    def get_possible_actions(self, state):
+        self.simulation.set_state(self.clone_state(state), copy_state=False)
+        return self.simulation.get_possible_actions()
+
+    def apply_action(self, state, action):
+        self.simulation.set_state(self.clone_state(state), copy_state=False)
+        self.simulation.execute_action(action)
+        return self.clone_state(self.simulation.get_state())
+
+    def is_terminal(self, state):
+        self.simulation.set_state(self.clone_state(state), copy_state=False)
+        return self.simulation.player_winner() is not None
+
+    def get_player_turn(self, state):
+        return state.get("player_turn")
+
+    def rollout(self, state, root_player, rng):
+        rng = rng or self.rng
+        self.simulation.set_state(self.clone_state(state), copy_state=False)
+        steps = 0
+        while self.simulation.player_winner() is None and steps < self.rollout_limit:
+            actions = self.simulation.get_possible_actions()
+            if not actions:
+                break
+            action = rng.choice(actions)
+            self.simulation.execute_action(action)
+            steps += 1
+        return self._evaluate_finished(state, root_player)
+
+    def _evaluate_finished(self, base_state, root_player):
+        player_winner = self.simulation.player_winner()
+        if player_winner == root_player:
+            return 10
+        if player_winner is not None and player_winner != root_player:
+            return -10
+        player_state_key = f"player{root_player + 1}_state"
+        base_figures = len(base_state[player_state_key]["figures_played"])
+        finished_figures = len(
+            self.simulation.logic.players[root_player].figures_played
+        )
+        return finished_figures - base_figures

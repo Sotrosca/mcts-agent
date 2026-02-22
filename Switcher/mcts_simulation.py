@@ -72,11 +72,12 @@ class SwitcherSimulation:
         }
         return ret
 
-    def set_state(self, state_dict: dict):
-        state_dict = copy.deepcopy(state_dict)
+    def set_state(self, state_dict: dict, copy_state=True):
+        if copy_state:
+            state_dict = copy.deepcopy(state_dict)
         self.logic.board.state = state_dict.get("board_state")
         # self.logic.figures_deck = state_dict.get("figures_deck")
-        self.logic.moves_deck = self.logic.shuffle_deck(state_dict.get("moves_deck"))
+        self.logic.moves_deck = state_dict.get("moves_deck")
         self.logic.moves_discard = state_dict.get("moves_discard")
         self.logic.last_color_played = state_dict.get("last_color_played")
         self.logic.player_turn = state_dict.get("player_turn")
@@ -92,8 +93,8 @@ class SwitcherSimulation:
         self.logic.players[0].figures_blocked = state_dict.get("player1_state").get(
             "figures_blocked"
         )
-        self.logic.players[0].figures_deck = self.logic.shuffle_deck(
-            state_dict.get("player1_state").get("figures_deck")
+        self.logic.players[0].figures_deck = state_dict.get("player1_state").get(
+            "figures_deck"
         )
         self.logic.players[0].hand = state_dict.get("player1_state").get("hand")
         self.logic.players[0].hand_size = state_dict.get("player1_state").get(
@@ -111,8 +112,8 @@ class SwitcherSimulation:
         self.logic.players[1].figures_blocked = state_dict.get("player2_state").get(
             "figures_blocked"
         )
-        self.logic.players[1].figures_deck = self.logic.shuffle_deck(
-            state_dict.get("player2_state").get("figures_deck")
+        self.logic.players[1].figures_deck = state_dict.get("player2_state").get(
+            "figures_deck"
         )
         self.logic.players[1].hand = state_dict.get("player2_state").get("hand")
         self.logic.players[1].hand_size = state_dict.get("player2_state").get(
@@ -130,6 +131,7 @@ class SwitcherSimulation:
         logic = self.logic
 
         moves = []
+        seen_pairs = set()
         for move_card_slot, move_card in logic.current_player.hand.items():
             if move_card is None:
                 continue
@@ -142,11 +144,12 @@ class SwitcherSimulation:
                             x, y, move[0], move[1], move_card_slot
                         )
                         to_cell_color = logic.board.state[move[1]][move[0]].color
+                        key = tuple(sorted(((switch_move.x1, switch_move.y1), (switch_move.x2, switch_move.y2))))
                         if (
-                            switch_move not in card_moves
-                            and switch_move not in moves
+                            key not in seen_pairs
                             and cell_color != to_cell_color
                         ):
+                            seen_pairs.add(key)
                             card_moves.append(switch_move)
             moves.extend(card_moves)
 
