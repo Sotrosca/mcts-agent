@@ -82,7 +82,17 @@ class ContainerDepotMCTSAdapter:
         return self.clone_state(self.simulation.get_state())
 
     def clone_state(self, state):
-        return copy.deepcopy(state)
+        return {
+            "crane_position": tuple(state["crane_position"]),
+            "board": [[list(stack) for stack in row] for row in state["board"]],
+            "board_size_cell": [list(row) for row in state["board_size_cell"]],
+            "board_height": state["board_height"],
+            "board_width": state["board_width"],
+            "board_length": state["board_length"],
+            "time": state["time"],
+            "epochs": state["epochs"],
+            "containers_to_extract_id": list(state["containers_to_extract_id"]),
+        }
 
     def get_possible_actions(self, state):
         self.simulation.set_state(self.clone_state(state))
@@ -103,13 +113,62 @@ class ContainerDepotMCTSAdapter:
     def rollout(self, state, root_player, rng):
         rng = rng or self.rng
         self.simulation.set_state(self.clone_state(state))
-        while not self.simulation.is_simulation_end():
+        rollout_limit = self._compute_rollout_limit()
+        steps = 0
+        while not self.simulation.is_simulation_end() and steps < rollout_limit:
             actions = self.simulation.get_possible_actions()
             if not actions:
                 break
-            action = rng.choice(actions)
+            action = self._choose_rollout_action(actions, rng)
             self.simulation.run_one_epoch(action)
-        return self._evaluate_finished()
+            steps += 1
+        is_terminal = self.simulation.is_simulation_end()
+        return self._evaluate_finished(
+            total_time=self.simulation.time,
+            total_epochs=self.simulation.epochs,
+            is_terminal=is_terminal,
+        )
 
-    def _evaluate_finished(self):
-        return 1 / max(1, self.simulation.epochs)
+    def _compute_rollout_limit(self):
+        board_cells = (
+            self.simulation.board_height
+            * self.simulation.board_width
+            * self.simulation.board_length
+        )
+        extraction_budget = max(1, len(self.simulation.containers_to_extract_id))
+        return max(40, board_cells * 6 + extraction_budget * 10)
+
+    def _choose_rollout_action(self, actions, rng):
+        extract_actions = [action for action in actions if action.get("type") == 2]
+        if extract_actions:
+            return extract_actions[0]
+
+        move_actions = [action for action in actions if action.get("type") == 1]
+        if move_actions:
+            move_actions.sort(
+                key=lambda action: self.simulation.calculate_move_cost(
+                    action["source_cell"], action["target_cell"]
+                )
+            )
+            cheapest_cost = self.simulation.calculate_move_cost(
+                move_actions[0]["source_cell"], move_actions[0]["target_cell"]
+            )
+            cheapest_actions = [
+                action
+                for action in move_actions
+                if self.simulation.calculate_move_cost(
+                    action["source_cell"], action["target_cell"]
+                )
+                == cheapest_cost
+            ]
+            return rng.choice(cheapest_actions)
+
+        end_actions = [action for action in actions if action.get("type") == 3]
+        if end_actions:
+            return end_actions[0]
+
+        return rng.choice(actions)
+
+    def _evaluate_finished(self, total_time, total_epochs, is_terminal=True):
+        non_terminal_penalty = 1000 if not is_terminal else 0
+        return 1 / (1 + total_time + total_epochs + non_terminal_penalty)

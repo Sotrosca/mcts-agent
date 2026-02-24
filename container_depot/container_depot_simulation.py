@@ -32,7 +32,6 @@ class Simulation():
         self.distance_function = distance_function
         self.epochs = 0
         self.containers_to_extract_id = containers_to_extract_id
-        self.move_actions = self.build_move_actions()
         self.history = {}
 
     def get_state(self):
@@ -46,7 +45,6 @@ class Simulation():
             'time' : self.time,
             'epochs' : self.epochs,
             'containers_to_extract_id' : self.containers_to_extract_id,
-            'move_actions' : self.move_actions
         }
         return simulation_state_dict
 
@@ -60,7 +58,6 @@ class Simulation():
         self.time = state_dict.get('time')
         self.epochs = state_dict.get('epochs')
         self.containers_to_extract_id = state_dict.get('containers_to_extract_id')
-        self.move_actions = state_dict.get('move_actions')
 
     def calculate_board_size_cell(self):
         board_size_cell = []
@@ -107,15 +104,21 @@ class Simulation():
         if action.get('type') == 1:
             source_cell = action.get('source_cell')
             target_cell = action.get('target_cell')
-            if self.board_size_cell[source_cell[0]][source_cell[1]] != 0 and self.board_size_cell[target_cell[0]][target_cell[1]] != self.board_length:
-                action_cost = self.calculate_move_cost(source_cell, target_cell)
-                self.move_container(source_cell, target_cell)
-            else:
-                self.time = 100000
+            if not self._is_valid_move_action(source_cell, target_cell):
+                raise ValueError(f"Invalid move action: {action}")
+            action_cost = self.calculate_move_cost(source_cell, target_cell)
+            self.move_container(source_cell, target_cell)
         elif action.get('type') == 2:
             source_cell = action.get('source_cell')
+            if not self._is_valid_extract_action(source_cell):
+                raise ValueError(f"Invalid extract action: {action}")
             action_cost = self.calculate_extract_cost(source_cell)
             self.extract_container(source_cell)
+        elif action.get('type') == 3:
+            if not self.is_simulation_end():
+                raise ValueError("END action is only valid when simulation is finished")
+        else:
+            raise ValueError(f"Unknown action type: {action}")
 
         self.time += action_cost
         self.epochs += 1
@@ -141,14 +144,12 @@ class Simulation():
             for i in range(self.board_height):
                 for j in range(self.board_width):
                     cell_size = self.board_size_cell[i][j]
-                    if cell_size != 0:
-                        first_container = self.board[i][j][cell_size - 1]
-                        if first_container == self.containers_to_extract_id[0]:
-                            actions.append({'source_cell' : (i, j), 'type' : 2})
-                        else:
-                            pass
-#                            actions.extend(self.get_all_move_actions_from_cell((i, j)))
-            actions.extend(self.move_actions)
+                    if cell_size == 0:
+                        continue
+                    first_container = self.board[i][j][cell_size - 1]
+                    if first_container == self.containers_to_extract_id[0]:
+                        actions.append({'source_cell' : (i, j), 'type' : 2})
+                    actions.extend(self.get_all_move_actions_from_cell((i, j)))
         return actions
 
     def get_all_move_actions_from_cell(self, source_cell):
@@ -171,4 +172,24 @@ class Simulation():
 
     def is_simulation_end(self):
         return len(self.containers_to_extract_id) == 0
+
+    def _is_valid_move_action(self, source_cell, target_cell):
+        if source_cell is None or target_cell is None:
+            return False
+        source_row, source_col = source_cell
+        target_row, target_col = target_cell
+        source_has_container = self.board_size_cell[source_row][source_col] > 0
+        target_has_capacity = self.board_size_cell[target_row][target_col] < self.board_length
+        different_cells = source_cell != target_cell
+        return source_has_container and target_has_capacity and different_cells
+
+    def _is_valid_extract_action(self, source_cell):
+        if source_cell is None or len(self.containers_to_extract_id) == 0:
+            return False
+        row, col = source_cell
+        cell_size = self.board_size_cell[row][col]
+        if cell_size == 0:
+            return False
+        top_container = self.board[row][col][cell_size - 1]
+        return top_container == self.containers_to_extract_id[0]
 
