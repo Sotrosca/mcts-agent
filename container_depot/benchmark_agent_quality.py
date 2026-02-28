@@ -37,7 +37,12 @@ def choose_greedy_action(simulation, actions, rng):
     return rng.choice(actions)
 
 
-def run_episode(scenario, policy_name, seed, timeout_seconds=3):
+def run_episode(
+    scenario,
+    policy_name,
+    seed,
+    timeout_seconds=3,
+):
     simulation = Simulation(
         (0, 0),
         copy.deepcopy(scenario["board"]),
@@ -57,7 +62,7 @@ def run_episode(scenario, policy_name, seed, timeout_seconds=3):
     invalid_actions = 0
     start = time.time()
     while not simulation.is_simulation_end() and steps < scenario["max_steps"]:
-        if time.time() - start > timeout_seconds:
+        if timeout_seconds > 0 and (time.time() - start > timeout_seconds):
             break
         actions = simulation.get_possible_actions()
         if not actions:
@@ -87,7 +92,7 @@ def run_episode(scenario, policy_name, seed, timeout_seconds=3):
         "solved": simulation.is_simulation_end(),
         "score": simulation.time + simulation.epochs,
         "invalid_actions": invalid_actions,
-        "timed_out": (time.time() - start) > timeout_seconds,
+        "timed_out": timeout_seconds > 0 and (time.time() - start) > timeout_seconds,
     }
 
 
@@ -188,7 +193,12 @@ def print_episode_comparison(episode_records, left_policy, right_policy):
 def main():
     parser = argparse.ArgumentParser(description="Benchmark ContainerDepot policies")
     parser.add_argument("--episodes-per-scenario", type=int, default=10)
-    parser.add_argument("--timeout-seconds", type=float, default=3.0)
+    parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=0.0,
+        help="Set <= 0 to disable timeout",
+    )
     parser.add_argument(
         "--short-set-only",
         action="store_true",
@@ -214,7 +224,12 @@ def main():
         for scenario in scenarios:
             for episode_idx in range(args.episodes_per_scenario):
                 seed = episode_idx
-                result = run_episode(scenario, policy, seed, args.timeout_seconds)
+                result = run_episode(
+                    scenario,
+                    policy,
+                    seed,
+                    args.timeout_seconds,
+                )
                 all_results_by_policy[policy].append(result)
                 scenario_results[scenario["name"]][policy].append(result)
                 episode_records[(scenario["name"], episode_idx)][policy] = result

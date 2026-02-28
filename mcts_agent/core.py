@@ -50,12 +50,18 @@ class MonteCarloPlayer:
         rollout_limit=None,
         rng=None,
         strict_state_isolation=None,
+        enable_progressive_widening=False,
+        progressive_widening_c=1.5,
+        progressive_widening_alpha=0.5,
     ):
         self.node_ids = iter(NaturalNumbersIterator())
-        self.adapter = adapter
+        self.adapter : MCTSAdapter = adapter
         self.exploration_constant = exploration_constant
         self.rollout_limit = rollout_limit
         self.rng = rng or random.Random()
+        self.enable_progressive_widening = enable_progressive_widening
+        self.progressive_widening_c = progressive_widening_c
+        self.progressive_widening_alpha = progressive_widening_alpha
         if strict_state_isolation is None:
             env_value = os.getenv("MCTS_STRICT_STATE_ISOLATION", "0")
             self.strict_state_isolation = env_value.lower() in {
@@ -218,13 +224,32 @@ class MonteCarloPlayer:
     def _select(self, node):
         current = node
         while not self.adapter.is_terminal(current.get_simulation_state()):
-            if current.untried_actions:
+            if self._should_expand_untried(current):
                 child = self.expand_node(current)
                 return child if child is not None else current
             if not current.children:
                 return current
             current = self._select_best_child(current)
         return current
+
+    def _should_expand_untried(self, node):
+        if not node.untried_actions:
+            return False
+        if not self.enable_progressive_widening:
+            return True
+        if len(node.untried_actions) == 1:
+            return True
+        if not node.children:
+            return True
+
+        max_children = max(
+            1,
+            int(
+                self.progressive_widening_c
+                * (max(1, node.visits) ** self.progressive_widening_alpha)
+            ),
+        )
+        return len(node.children) < max_children
 
     def _uct_score(self, parent, child):
         if child.visits == 0:

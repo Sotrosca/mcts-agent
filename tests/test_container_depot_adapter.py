@@ -46,7 +46,7 @@ def test_rollout_prioritizes_extract_when_available():
 
     reward = adapter.rollout(state, root_player=0, rng=random.Random(0))
 
-    assert reward == 1 / (1 + 1 + 1)
+    assert reward == -2.0
 
 
 def test_evaluate_finished_uses_time_and_epochs():
@@ -58,8 +58,32 @@ def test_evaluate_finished_uses_time_and_epochs():
         [1],
     )
 
-    assert adapter._evaluate_finished(total_time=0, total_epochs=0) == 1.0
-    assert adapter._evaluate_finished(total_time=4, total_epochs=2) == 1 / 7
+    assert adapter._evaluate_finished(total_time=0, total_epochs=0) == 0.0
+    assert adapter._evaluate_finished(total_time=4, total_epochs=2) == -6.0
+
+
+def test_evaluate_finished_penalizes_weighted_blockage():
+    adapter = build_adapter(
+        [
+            [[1, 8, 9], [2, 0, 0]],
+            [[0, 0, 0], [0, 0, 0]],
+        ],
+        [1, 2],
+    )
+
+    assert adapter._compute_weighted_blockage() == 2.0
+    reward_without_blockage = adapter._evaluate_finished(
+        total_time=4,
+        total_epochs=0,
+        weighted_blockage=0.0,
+    )
+    reward_with_blockage = adapter._evaluate_finished(
+        total_time=4,
+        total_epochs=0,
+        weighted_blockage=2.0,
+    )
+
+    assert reward_with_blockage < reward_without_blockage
 
 
 def test_evaluate_finished_penalizes_non_terminal_rollout():
@@ -97,5 +121,4 @@ def test_rollout_returns_for_non_terminating_scenario():
 
     reward = adapter.rollout(state, root_player=0, rng=random.Random(0))
 
-    assert reward > 0
-    assert reward < 1 / 100
+    assert reward < -1000
