@@ -171,6 +171,7 @@ def build_simulation(scenario):
 def run_visualizer(
     scenario,
     seed,
+    agents,
     rollouts,
     max_steps,
     top_k,
@@ -185,39 +186,53 @@ def run_visualizer(
     tree_frontier_k,
     tree_frontier_depth,
 ):
-    mcts_sim = build_simulation(scenario)
-    greedy_sim = build_simulation(scenario)
+    agent_states = {}
+    for index, agent_name in enumerate(agents):
+        agent_seed = seed + (index * 101)
+        simulation = build_simulation(scenario)
+        state = {
+            "name": agent_name,
+            "simulation": simulation,
+        }
+        if agent_name == "mcts":
+            state["player"] = MonteCarloPlayer(
+                ContainerDepotMCTSAdapter(simulation, rng=random.Random(agent_seed)),
+                rng=random.Random(agent_seed),
+                enable_progressive_widening=enable_progressive_widening,
+                exploration_constant=exploration_constant,
+                progressive_widening_c=progressive_widening_c,
+                progressive_widening_alpha=progressive_widening_alpha,
+            )
+        else:
+            state["rng"] = random.Random(agent_seed)
+        agent_states[agent_name] = state
 
-    mcts_player = MonteCarloPlayer(
-        ContainerDepotMCTSAdapter(mcts_sim, rng=random.Random(seed)),
-        rng=random.Random(seed),
-        enable_progressive_widening=enable_progressive_widening,
-        exploration_constant=exploration_constant,
-        progressive_widening_c=progressive_widening_c,
-        progressive_widening_alpha=progressive_widening_alpha,
-    )
-    greedy_rng = random.Random(seed)
+    def all_agents_done():
+        return all(
+            state["simulation"].is_simulation_end() for state in agent_states.values()
+        )
+
+    def print_agent_boards():
+        for agent_name in agents:
+            simulation = agent_states[agent_name]["simulation"]
+            print(f"\n{agent_name.upper()} Board")
+            for line in board_to_lines(simulation):
+                print(line)
 
     start = time.time()
     print("=== Container Depot Decision Visualizer ===")
     timeout_label = "disabled" if timeout_seconds <= 0 else f"{timeout_seconds}s"
     print(
-        f"scenario={scenario['name']} seed={seed} rollouts={rollouts} max_steps={max_steps} timeout={timeout_label}"
+        f"scenario={scenario['name']} seed={seed} agents={','.join(agents)} rollouts={rollouts} max_steps={max_steps} timeout={timeout_label}"
     )
 
     print("\n=== Initial State ===")
-    print(
-        f"MCTS metrics: time={mcts_sim.time}, epochs={mcts_sim.epochs}, score={mcts_sim.time + mcts_sim.epochs}"
-    )
-    print(
-        f"Greedy metrics: time={greedy_sim.time}, epochs={greedy_sim.epochs}, score={greedy_sim.time + greedy_sim.epochs}"
-    )
-    print_side_by_side(
-        "MCTS Board",
-        board_to_lines(mcts_sim),
-        "Greedy Board",
-        board_to_lines(greedy_sim),
-    )
+    for agent_name in agents:
+        simulation = agent_states[agent_name]["simulation"]
+        print(
+            f"{agent_name.upper()} metrics: time={simulation.time}, epochs={simulation.epochs}, score={simulation.time + simulation.epochs}"
+        )
+    print_agent_boards()
 
     step = 0
     while step < max_steps:
@@ -225,82 +240,76 @@ def run_visualizer(
             print("\nStopped by timeout.")
             break
 
-        mcts_done = mcts_sim.is_simulation_end()
-        greedy_done = greedy_sim.is_simulation_end()
-        if mcts_done and greedy_done:
+        if all_agents_done():
             break
 
         print(f"\n=== Step {step} ===")
 
-        mcts_action = None
-        mcts_candidates = []
-        if not mcts_done:
-            mcts_node = mcts_player.search_best_move(rollouts=rollouts)
-            mcts_action = mcts_node.action if mcts_node is not None else None
-            mcts_candidates = get_mcts_top_candidates(mcts_player, top_k)
-        else:
+        for agent_name in agents:
+            state = agent_states[agent_name]
+            simulation = state["simulation"]
+            if simulation.is_simulation_end():
+                print(f"{agent_name.upper()} action: {format_action(None)}")
+                continue
+
+            action = None
             mcts_node = None
+            if agent_name == "mcts":
+                player = state["player"]
+                mcts_node = player.search_best_move(rollouts=rollouts)
+                action = mcts_node.action if mcts_node is not None else None
 
-        greedy_action = None
-        if not greedy_done:
-            greedy_actions = greedy_sim.get_possible_actions()
-            greedy_action = choose_greedy_action(greedy_sim, greedy_actions, greedy_rng)
+                mcts_candidates = get_mcts_top_candidates(player, top_k)
+                if mcts_candidates:
+                    print("MCTS top candidates:")
+                    for line in mcts_candidates:
+                        print("  " + line)
 
-        print(f"MCTS action:   {format_action(mcts_action)}")
-        print(f"Greedy action: {format_action(greedy_action)}")
+                if show_tree_stats or tree_frontier_k > 0:
+                    tree_root = player.action_tree
+                    if show_tree_stats:
+                        stats = get_tree_stats(tree_root)
+                        print(
+                            "MCTS tree stats: "
+                            f"nodes={stats['nodes']} leaves={stats['leaves']} "
+                            f"depth={stats['max_depth']} avg_branching={stats['avg_branching']:.2f} "
+                            f"with_untried={stats['nodes_with_untried']} "
+                            f"root_children={stats['root_children']} root_visits={stats['root_visits_total']} "
+                            f"root_visit_std={stats['root_visit_std']:.2f}"
+                        )
 
-        if mcts_candidates:
-            print("MCTS top candidates:")
-            for line in mcts_candidates:
-                print("  " + line)
+                    frontier_lines = get_tree_frontier_lines(
+                        tree_root,
+                        top_k=tree_frontier_k,
+                        max_depth=tree_frontier_depth,
+                    )
+                    if frontier_lines:
+                        print(
+                            f"MCTS tree frontier (top {tree_frontier_k}, depth<={tree_frontier_depth}):"
+                        )
+                        for line in frontier_lines:
+                            print("  " + line)
 
-        if not mcts_done and (show_tree_stats or tree_frontier_k > 0):
-            tree_root = mcts_player.action_tree
-            if show_tree_stats:
-                stats = get_tree_stats(tree_root)
+            elif agent_name == "greedy":
+                rng = state["rng"]
+                actions = simulation.get_possible_actions()
+                action = choose_greedy_action(simulation, actions, rng)
+            elif agent_name == "random":
+                rng = state["rng"]
+                actions = simulation.get_possible_actions()
+                action = rng.choice(actions) if actions else None
+
+            print(f"{agent_name.upper()} action: {format_action(action)}")
+            if action is not None:
+                previous_time = simulation.time
+                simulation.execute_action(action)
+                if agent_name == "mcts" and mcts_node is not None:
+                    state["player"].execute_action_on_simulation(mcts_node)
                 print(
-                    "MCTS tree stats: "
-                    f"nodes={stats['nodes']} leaves={stats['leaves']} "
-                    f"depth={stats['max_depth']} avg_branching={stats['avg_branching']:.2f} "
-                    f"with_untried={stats['nodes_with_untried']} "
-                    f"root_children={stats['root_children']} root_visits={stats['root_visits_total']} "
-                    f"root_visit_std={stats['root_visit_std']:.2f}"
+                    f"{agent_name.upper()} metrics: time={simulation.time} (+{simulation.time - previous_time}), epochs={simulation.epochs}"
                 )
 
-            frontier_lines = get_tree_frontier_lines(
-                tree_root,
-                top_k=tree_frontier_k,
-                max_depth=tree_frontier_depth,
-            )
-            if frontier_lines:
-                print(
-                    f"MCTS tree frontier (top {tree_frontier_k}, depth<={tree_frontier_depth}):"
-                )
-                for line in frontier_lines:
-                    print("  " + line)
-
-        if mcts_action is not None and not mcts_done:
-            previous_time = mcts_sim.time
-            mcts_sim.execute_action(mcts_action)
-            if mcts_node is not None:
-                mcts_player.execute_action_on_simulation(mcts_node)
-            print(
-                f"MCTS metrics: time={mcts_sim.time} (+{mcts_sim.time - previous_time}), epochs={mcts_sim.epochs}"
-            )
-
-        if greedy_action is not None and not greedy_done:
-            previous_time = greedy_sim.time
-            greedy_sim.execute_action(greedy_action)
-            print(
-                f"Greedy metrics: time={greedy_sim.time} (+{greedy_sim.time - previous_time}), epochs={greedy_sim.epochs}"
-            )
-
-        print_side_by_side(
-            "MCTS Board",
-            board_to_lines(mcts_sim),
-            "Greedy Board",
-            board_to_lines(greedy_sim),
-        )
+        print_agent_boards()
 
         step += 1
 
@@ -310,16 +319,15 @@ def run_visualizer(
             time.sleep(delay_seconds)
 
     print("\n=== Final Summary ===")
-    print(
-        f"MCTS solved={mcts_sim.is_simulation_end()} score={mcts_sim.time + mcts_sim.epochs} time={mcts_sim.time} epochs={mcts_sim.epochs}"
-    )
-    print(
-        f"Greedy solved={greedy_sim.is_simulation_end()} score={greedy_sim.time + greedy_sim.epochs} time={greedy_sim.time} epochs={greedy_sim.epochs}"
-    )
+    for agent_name in agents:
+        simulation = agent_states[agent_name]["simulation"]
+        print(
+            f"{agent_name.upper()} solved={simulation.is_simulation_end()} score={simulation.time + simulation.epochs} time={simulation.time} epochs={simulation.epochs}"
+        )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Visualize MCTS vs Greedy decisions step by step")
+    parser = argparse.ArgumentParser(description="Visualize Container Depot agents step by step")
     parser.add_argument("--scenario", type=str, default="small_easy")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--rollouts", type=int, default=25)
@@ -333,6 +341,12 @@ def main():
     )
     parser.add_argument("--delay-seconds", type=float, default=0.0)
     parser.add_argument("--interactive", action="store_true")
+    parser.add_argument(
+        "--agents",
+        type=str,
+        default="mcts,greedy",
+        help="Comma-separated list: mcts,greedy,random",
+    )
     parser.add_argument(
         "--enable-progressive-widening",
         action="store_true",
@@ -375,10 +389,21 @@ def main():
     )
     args = parser.parse_args()
 
+    parsed_agents = [part.strip().lower() for part in args.agents.split(",") if part.strip()]
+    if not parsed_agents:
+        raise ValueError("--agents must include at least one policy")
+    supported_agents = {"mcts", "greedy", "random"}
+    unsupported_agents = [name for name in parsed_agents if name not in supported_agents]
+    if unsupported_agents:
+        raise ValueError(
+            f"Unsupported agents: {', '.join(unsupported_agents)}. Supported: mcts,greedy,random"
+        )
+
     scenario = select_scenario(args.scenario)
     run_visualizer(
         scenario=scenario,
         seed=args.seed,
+        agents=parsed_agents,
         rollouts=args.rollouts,
         max_steps=min(args.max_steps, scenario["max_steps"]),
         top_k=args.top_k,
