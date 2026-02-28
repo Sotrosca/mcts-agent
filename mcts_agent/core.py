@@ -251,15 +251,6 @@ class MonteCarloPlayer:
         )
         return len(node.children) < max_children
 
-    def _uct_score(self, parent, child):
-        if child.visits == 0:
-            return float("inf")
-        exploitation = child.value / child.visits
-        exploration = self.exploration_constant * math.sqrt(
-            math.log(max(1, parent.visits)) / child.visits
-        )
-        return exploitation + exploration
-
     def _select_best_child(self, node):
         parent_visits = node.visits
         log_parent = math.log(parent_visits) if parent_visits > 1 else 0.0

@@ -1,7 +1,7 @@
 import random
 
-from container_depot.container_depot_simulation import Simulation
-from container_depot.example_mcts_functions import ContainerDepotMCTSAdapter
+from container_depot.simulation import Simulation
+from container_depot.agent import ContainerDepotMCTSAdapter
 
 
 def manhattan_distance(x_position, y_position):

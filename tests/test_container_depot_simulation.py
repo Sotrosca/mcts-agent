@@ -1,6 +1,6 @@
 import pytest
 
-from container_depot.container_depot_simulation import Simulation
+from container_depot.simulation import Simulation
 
 
 def manhattan_distance(x_position, y_position):

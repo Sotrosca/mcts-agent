@@ -1,96 +1,33 @@
 import copy
-import pickle
 import random
+from collections.abc import Callable
+from typing import Any
 
-import numpy as np
-
-def selection_function(tree_nodes):
-    uct_constant = 110
-    selected_node = tree_nodes
-
-    while selected_node.has_children():
-        selection_value_uct = -1
-        winner_node = None
-        best_children = selected_node.children
-        unvisited_children = [child for child in best_children if child.visits == 0]
-
-        if len(unvisited_children) > 0:
-            selected_node = random.choice(unvisited_children)
-
-        else:
-            for child in best_children:
-                child_success_ratio = (child.value) / (child.visits)
-                log_ratio = (np.log(selected_node.visits) / child.visits) ** 0.5
-                child_value_uct = child_success_ratio + uct_constant * log_ratio
-
-                if child_value_uct > selection_value_uct:
-                    selection_value_uct = child_value_uct
-                    winner_node = child
-
-            selected_node = winner_node
-
-    return selected_node
-
-
-def expansion_function(node):
-    return node.visits == 1 or len(node.children) == 1
-
-def simulation_function(action_node, simulation_copy):
-    simulation_copy.set_state(pickle.loads(pickle.dumps(action_node.get_simulation_state(), -1)))
-    i = 1
-
-    while not simulation_copy.is_simulation_end():
-
-        possible_actions = simulation_copy.get_possible_actions()
-        action = random.choice(possible_actions)
-        simulation_copy.run_one_epoch(action)
-        i += 1
-
-    return simulation_copy
-
-def retropropagation_function(original_simulation, simulation_finished, action_node):
-
-    value_node = 1 / simulation_finished.epochs
-    actual_node = action_node
-
-    actual_node.visits += 1
-    actual_node.value += value_node
-
-    while actual_node.has_parent():
-        actual_node = actual_node.parent
-        actual_node.visits += 1
-        actual_node.value += value_node
-
-def movement_choice_function(tree_nodes):
-    best_child_visits = -1
-    best_child = None
-
-    for child in tree_nodes.children:
-        if child.visits > best_child_visits:
-            best_child_visits = child.visits
-            best_child = child
-
-    return best_child
+Cell = tuple[int, int]
+Action = dict[str, Any]
+State = dict[str, Any]
+Board = list[list[list[int]]]
+DistanceFunction = Callable[[Cell, Cell], int]
 
 
 class ContainerDepotMCTSAdapter:
     def __init__(
         self,
-        simulation,
-        rng=None,
-        blockage_weight=1.0,
-        initial_target_blockage_weight=1.0,
+        simulation: Any,
+        rng: random.Random | None = None,
+        blockage_weight: float = 1.0,
+        initial_target_blockage_weight: float = 1.0,
     ):
         self.simulation = copy.deepcopy(simulation)
         self.rng = rng or random.Random()
-        self.blockage_weight = blockage_weight
-        self.initial_target_blockage_weight = initial_target_blockage_weight
-        self._distance_cache = self._build_distance_cache()
+        self.blockage_weight: float = blockage_weight
+        self.initial_target_blockage_weight: float = initial_target_blockage_weight
+        self._distance_cache: dict[tuple[Cell, Cell], int] = self._build_distance_cache()
 
-    def get_initial_state(self):
+    def get_initial_state(self) -> State:
         return self.clone_state(self.simulation.get_state())
 
-    def clone_state(self, state):
+    def clone_state(self, state: State) -> State:
         return {
             "crane_position": tuple(state["crane_position"]),
             "board": [[list(stack) for stack in row] for row in state["board"]],
@@ -103,39 +40,42 @@ class ContainerDepotMCTSAdapter:
             "containers_to_extract_id": list(state["containers_to_extract_id"]),
         }
 
-    def get_possible_actions(self, state):
+    def get_possible_actions(self, state: State) -> list[Action]:
         self.simulation.set_state(self.clone_state(state))
         return self.simulation.get_possible_actions()
 
-    def apply_action(self, state, action):
+    def apply_action(self, state: State, action: Action) -> State:
         self.simulation.set_state(self.clone_state(state))
         self.simulation.execute_action(action)
         return self.clone_state(self.simulation.get_state())
 
-    def is_terminal(self, state):
+    def is_terminal(self, state: State) -> bool:
         self.simulation.set_state(self.clone_state(state))
         return self.simulation.is_simulation_end()
 
-    def get_player_turn(self, state):
+    def get_player_turn(self, state: State) -> int:
         return 0
 
-    def rollout(self, state, root_player, rng):
+    def rollout(self, state: State, root_player: int, rng: random.Random | None) -> float:
         rng = rng or self.rng
         rollout_start_state = self.clone_state(state)
         self.simulation.set_state(self.clone_state(rollout_start_state))
         rollout_limit = self._compute_rollout_limit()
         steps = 0
         while not self.simulation.is_simulation_end() and steps < rollout_limit:
-            action = self._choose_rollout_action_fast(rng)
+            action = self._select_rollout_action(rng)
             if action is None:
                 break
             self.simulation.run_one_epoch(action)
             steps += 1
-        return self._evaluate_simulation_state(
+        return self._evaluate_rollout_result(
             rollout_start_state=rollout_start_state,
         )
 
-    def _evaluate_simulation_state(self, rollout_start_state):
+    def simulation_function(self, rollout_start_state: State) -> float:
+        return self._evaluate_rollout_result(rollout_start_state)
+
+    def _evaluate_rollout_result(self, rollout_start_state: State) -> float:
         is_terminal = self.simulation.is_simulation_end()
         weighted_blockage = 0.0 if is_terminal else self._compute_weighted_blockage()
         initial_weighted_blockage = self._compute_weighted_blockage_in_state(
@@ -149,7 +89,7 @@ class ContainerDepotMCTSAdapter:
             initial_weighted_blockage=initial_weighted_blockage,
         )
 
-    def _compute_rollout_limit(self):
+    def _compute_rollout_limit(self) -> int:
         board_cells = (
             self.simulation.board_height
             * self.simulation.board_width
@@ -158,34 +98,10 @@ class ContainerDepotMCTSAdapter:
         extraction_budget = max(1, len(self.simulation.containers_to_extract_id))
         return max(40, board_cells * 6 + extraction_budget * 10)
 
-    def _choose_rollout_action(self, actions, rng):
-        best_move_cost = None
-        best_move_actions = []
-        fallback_end_action = None
+    def movement_choice_function(self, rng: random.Random) -> Action | None:
+        return self._select_rollout_action(rng)
 
-        for action in actions:
-            action_type = action.get("type")
-            if action_type == 2:
-                return action
-            if action_type == 1:
-                move_cost = self.simulation.calculate_move_cost(
-                    action["source_cell"], action["target_cell"]
-                )
-                if best_move_cost is None or move_cost < best_move_cost:
-                    best_move_cost = move_cost
-                    best_move_actions = [action]
-                elif move_cost == best_move_cost:
-                    best_move_actions.append(action)
-            elif action_type == 3 and fallback_end_action is None:
-                fallback_end_action = action
-
-        if best_move_actions:
-            return rng.choice(best_move_actions)
-        if fallback_end_action is not None:
-            return fallback_end_action
-        return rng.choice(actions)
-
-    def _choose_rollout_action_fast(self, rng):
+    def _select_rollout_action(self, rng: random.Random) -> Action | None:
         if self.simulation.is_simulation_end():
             return {"type": 3}
 
@@ -269,12 +185,12 @@ class ContainerDepotMCTSAdapter:
 
     def _evaluate_finished(
         self,
-        total_time,
-        total_epochs,
-        is_terminal=True,
-        weighted_blockage=0.0,
-        initial_weighted_blockage=0.0,
-    ):
+        total_time: int,
+        total_epochs: int,
+        is_terminal: bool = True,
+        weighted_blockage: float = 0.0,
+        initial_weighted_blockage: float = 0.0,
+    ) -> float:
         non_terminal_penalty = 1000 if not is_terminal else 0
         blockage_penalty = self.blockage_weight * weighted_blockage
         initial_target_penalty = (
@@ -289,18 +205,21 @@ class ContainerDepotMCTSAdapter:
         )
         return -float(total_cost)
 
-    def _compute_weighted_blockage(self):
+    def _compute_weighted_blockage(self) -> float:
         pending_targets = self.simulation.containers_to_extract_id
         if not pending_targets:
             return 0.0
 
-        target_blocks_above = self._build_blocks_above_index(pending_targets)
+        target_blocks_above = self._build_blocks_above_index_in_state(
+            self.simulation.get_state(),
+            pending_targets,
+        )
         weighted_blockage = 0.0
         for target_order, target_id in enumerate(pending_targets, start=1):
             weighted_blockage += target_blocks_above.get(target_id, 0) / target_order
         return weighted_blockage
 
-    def _compute_weighted_blockage_in_state(self, state):
+    def _compute_weighted_blockage_in_state(self, state: State | None) -> float:
         if not state:
             return 0.0
         pending_targets = state["containers_to_extract_id"]
@@ -316,7 +235,7 @@ class ContainerDepotMCTSAdapter:
             weighted_blockage += target_blocks_above.get(target_id, 0) / target_order
         return weighted_blockage
 
-    def _build_distance_cache(self):
+    def _build_distance_cache(self) -> dict[tuple[Cell, Cell], int]:
         positions = [
             (row, col)
             for row in range(self.simulation.board_height)
@@ -330,16 +249,14 @@ class ContainerDepotMCTSAdapter:
                 )
         return distance_cache
 
-    def _distance(self, source_cell, target_cell):
+    def _distance(self, source_cell: Cell, target_cell: Cell) -> int:
         return self._distance_cache[(source_cell, target_cell)]
 
-    def _build_blocks_above_index(self, target_ids):
-        return self._build_blocks_above_index_in_state(
-            self.simulation.get_state(),
-            target_ids,
-        )
-
-    def _build_blocks_above_index_in_state(self, state, target_ids):
+    def _build_blocks_above_index_in_state(
+        self,
+        state: State,
+        target_ids: list[int],
+    ) -> dict[int, int]:
         remaining_targets = set(target_ids)
         blocks_above_by_target = {}
 
@@ -363,23 +280,3 @@ class ContainerDepotMCTSAdapter:
                             return blocks_above_by_target
 
         return blocks_above_by_target
-
-    def _count_blocks_above(self, target_id):
-        return self._count_blocks_above_in_state(self.simulation.get_state(), target_id)
-
-    def _count_blocks_above_in_state(self, state, target_id):
-        board = state["board"]
-        board_size_cell = state["board_size_cell"]
-        board_height = state["board_height"]
-        board_width = state["board_width"]
-
-        for row in range(board_height):
-            for col in range(board_width):
-                stack_size = board_size_cell[row][col]
-                if stack_size == 0:
-                    continue
-                stack = board[row][col]
-                for depth in range(stack_size):
-                    if stack[depth] == target_id:
-                        return stack_size - depth - 1
-        return 0

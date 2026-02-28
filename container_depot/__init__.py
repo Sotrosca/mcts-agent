@@ -1,4 +1,4 @@
-from .container_depot_simulation import Simulation
-from .example_mcts_functions import ContainerDepotMCTSAdapter
+from .simulation import Simulation
+from .agent import ContainerDepotMCTSAdapter
 
 __all__ = ["Simulation", "ContainerDepotMCTSAdapter"]

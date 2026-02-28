@@ -5,8 +5,8 @@ import statistics
 import time
 
 from container_depot.benchmark_agent_quality import choose_greedy_action
-from container_depot.container_depot_simulation import Simulation
-from container_depot.example_mcts_functions import ContainerDepotMCTSAdapter
+from container_depot.simulation import Simulation
+from container_depot.agent import ContainerDepotMCTSAdapter
 from container_depot.scenarios import get_container_depot_scenarios, manhattan_distance
 from mcts_agent.core import MonteCarloPlayer
 
