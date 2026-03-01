@@ -5,6 +5,10 @@ import statistics
 import time
 
 from container_depot.benchmark_agent_quality import choose_greedy_action
+from container_depot.pygame_renderer import (
+    ContainerDepotPygameRenderer,
+    RendererConfig,
+)
 from container_depot.simulation import Simulation
 from container_depot.agent import ContainerDepotMCTSAdapter
 from container_depot.scenarios import get_container_depot_scenarios, manhattan_distance
@@ -185,6 +189,13 @@ def run_visualizer(
     show_tree_stats,
     tree_frontier_k,
     tree_frontier_depth,
+    pygame_render,
+    pygame_agent,
+    pygame_width,
+    pygame_height,
+    pygame_fps,
+    pygame_animation_seconds,
+    pygame_interactive,
 ):
     agent_states = {}
     for index, agent_name in enumerate(agents):
@@ -219,6 +230,26 @@ def run_visualizer(
             for line in board_to_lines(simulation):
                 print(line)
 
+    renderer = None
+    renderer_enabled = False
+    # History of (simulation_state_dict, action, status_text) per step for replay
+    pygame_history: list[tuple[dict, dict | None, str]] = []
+    if pygame_render:
+        if pygame_agent not in agent_states:
+            raise ValueError(
+                f"--pygame-agent '{pygame_agent}' must be one of: {', '.join(agents)}"
+            )
+        renderer = ContainerDepotPygameRenderer(
+            title=f"Container Depot - {pygame_agent}",
+            config=RendererConfig(
+                width=pygame_width,
+                height=pygame_height,
+                fps=pygame_fps,
+                animation_seconds=pygame_animation_seconds,
+            ),
+        )
+        renderer_enabled = True
+
     start = time.time()
     print("=== Container Depot Decision Visualizer ===")
     timeout_label = "disabled" if timeout_seconds <= 0 else f"{timeout_seconds}s"
@@ -234,6 +265,23 @@ def run_visualizer(
         )
     print_agent_boards()
 
+    if renderer_enabled:
+        # Record initial state
+        pygame_sim = agent_states[pygame_agent]["simulation"]
+        pygame_history.append(
+            (copy.deepcopy(pygame_sim.get_state()), None, "initial state")
+        )
+        if not renderer.render(
+            pygame_sim,
+            status_text="initial state",
+            last_action=None,
+        ):
+            renderer_enabled = False
+
+    pygame_auto_play = False
+    pygame_step_delay = max(0.05, delay_seconds if delay_seconds > 0 else 0.35)
+    user_requested_stop = False
+
     step = 0
     while step < max_steps:
         if timeout_seconds > 0 and (time.time() - start > timeout_seconds):
@@ -242,6 +290,47 @@ def run_visualizer(
 
         if all_agents_done():
             break
+
+        if renderer_enabled and pygame_interactive:
+            wait_start = time.time()
+            while True:
+                pygame_sim = agent_states[pygame_agent]["simulation"]
+                mode = "AUTO" if pygame_auto_play else "STEP"
+                status_line = (
+                    f"step={step} mode={mode} dt={pygame_step_delay:.2f}s "
+                    "SPACE/N=step A=auto +/- speed ESC/Q=quit"
+                )
+                if not renderer.render(
+                    pygame_sim,
+                    status_text=status_line,
+                    last_action=None,
+                ):
+                    print("Pygame renderer closed by user.")
+                    renderer_enabled = False
+                    user_requested_stop = True
+                    break
+
+                command = renderer.poll_interaction_command(timeout_ms=40)
+                if command == "quit":
+                    user_requested_stop = True
+                    break
+                if command == "step":
+                    break
+                if command == "toggle_auto":
+                    pygame_auto_play = not pygame_auto_play
+                    wait_start = time.time()
+                if command == "faster":
+                    pygame_step_delay = max(0.05, pygame_step_delay * 0.8)
+                    wait_start = time.time()
+                if command == "slower":
+                    pygame_step_delay = min(3.0, pygame_step_delay * 1.25)
+                    wait_start = time.time()
+
+                if pygame_auto_play and (time.time() - wait_start) >= pygame_step_delay:
+                    break
+
+            if user_requested_stop:
+                break
 
         print(f"\n=== Step {step} ===")
 
@@ -301,6 +390,14 @@ def run_visualizer(
 
             print(f"{agent_name.upper()} action: {format_action(action)}")
             if action is not None:
+                if renderer_enabled and agent_name == pygame_agent:
+                    if not renderer.animate_action(
+                        simulation,
+                        action,
+                        status_text=f"step={step} agent={agent_name}",
+                    ):
+                        print("Pygame renderer closed by user.")
+                        renderer_enabled = False
                 previous_time = simulation.time
                 simulation.execute_action(action)
                 if agent_name == "mcts" and mcts_node is not None:
@@ -308,15 +405,44 @@ def run_visualizer(
                 print(
                     f"{agent_name.upper()} metrics: time={simulation.time} (+{simulation.time - previous_time}), epochs={simulation.epochs}"
                 )
+                if renderer_enabled and agent_name == pygame_agent:
+                    if not renderer.render(
+                        simulation,
+                        status_text=f"step={step} agent={agent_name} [applied]",
+                        last_action=action,
+                    ):
+                        print("Pygame renderer closed by user.")
+                        renderer_enabled = False
+                    else:
+                        # Record snapshot after action applied
+                        pygame_history.append(
+                            (
+                                copy.deepcopy(simulation.get_state()),
+                                action,
+                                f"step={step} agent={agent_name}",
+                            )
+                        )
 
         print_agent_boards()
 
         step += 1
 
-        if interactive:
+        if renderer_enabled and pygame_interactive:
+            pass
+        elif interactive:
             input("Press Enter to continue...")
         elif delay_seconds > 0:
             time.sleep(delay_seconds)
+
+        if renderer_enabled:
+            pygame_sim = agent_states[pygame_agent]["simulation"]
+            if not renderer.render(
+                pygame_sim,
+                status_text=f"step={step} idle",
+                last_action=None,
+            ):
+                print("Pygame renderer closed by user.")
+                renderer_enabled = False
 
     print("\n=== Final Summary ===")
     for agent_name in agents:
@@ -324,6 +450,91 @@ def run_visualizer(
         print(
             f"{agent_name.upper()} solved={simulation.is_simulation_end()} score={simulation.time + simulation.epochs} time={simulation.time} epochs={simulation.epochs}"
         )
+
+    if renderer is not None:
+        final_sim = agent_states[pygame_agent]["simulation"]
+        if renderer_enabled:
+            renderer.render(final_sim, status_text="FINISHED - use LEFT/RIGHT to replay, ESC to quit", last_action=None)
+
+        # --- Post-game replay loop ---
+        if renderer_enabled and pygame_history:
+            replay_sim = build_simulation(scenario)
+            cursor = len(pygame_history) - 1  # start at last step
+            total = len(pygame_history)
+
+            def _render_snapshot(idx: int) -> bool:
+                state_dict, action, status = pygame_history[idx]
+                replay_sim.set_state(copy.deepcopy(state_dict))
+                label = (
+                    f"[{idx}/{total - 1}] {status} | "
+                    "LEFT=back RIGHT=fwd HOME=first END=last ESC=quit"
+                )
+                return renderer.render(
+                    replay_sim,
+                    status_text=label,
+                    last_action=action,
+                )
+
+            def _animate_to(idx: int) -> bool:
+                """Animate the action that produced snapshot *idx*.
+
+                Sets the simulation to the state just before the action,
+                runs ``animate_action``, then renders the resulting state.
+                """
+                state_dict, action, status = pygame_history[idx]
+                if action is None or idx == 0:
+                    return _render_snapshot(idx)
+
+                # State before this action is the previous snapshot
+                prev_state = pygame_history[idx - 1][0]
+                replay_sim.set_state(copy.deepcopy(prev_state))
+
+                label = (
+                    f"[{idx}/{total - 1}] {status} | "
+                    "LEFT=back RIGHT=fwd HOME=first END=last ESC=quit"
+                )
+                if not renderer.animate_action(
+                    replay_sim,
+                    action,
+                    status_text=label,
+                ):
+                    return False
+
+                # After animation, show the final state
+                return _render_snapshot(idx)
+
+            _render_snapshot(cursor)
+
+            while renderer.running:
+                cmd = renderer.poll_interaction_command(timeout_ms=40)
+                if cmd == "quit":
+                    break
+                if cmd == "back" or cmd == "slower":
+                    new_cursor = max(0, cursor - 1)
+                    if new_cursor != cursor:
+                        cursor = new_cursor
+                        if not _render_snapshot(cursor):
+                            break
+                elif cmd in ("step", "faster"):
+                    new_cursor = min(total - 1, cursor + 1)
+                    if new_cursor != cursor:
+                        cursor = new_cursor
+                        if not _animate_to(cursor):
+                            break
+                elif cmd == "first":
+                    cursor = 0
+                    if not _render_snapshot(cursor):
+                        break
+                elif cmd == "last":
+                    cursor = total - 1
+                    if not _render_snapshot(cursor):
+                        break
+                else:
+                    # Re-render current snapshot to keep window alive
+                    if not _render_snapshot(cursor):
+                        break
+
+        renderer.close()
 
 
 def main():
@@ -387,6 +598,26 @@ def main():
         default=3,
         help="Maximum depth for tree frontier reporting",
     )
+    parser.add_argument(
+        "--pygame-render",
+        action="store_true",
+        help="Render one selected agent with pygame and animate crane movement per step",
+    )
+    parser.add_argument(
+        "--pygame-agent",
+        type=str,
+        default="mcts",
+        help="Agent to render in pygame (must be in --agents)",
+    )
+    parser.add_argument("--pygame-width", type=int, default=1000)
+    parser.add_argument("--pygame-height", type=int, default=700)
+    parser.add_argument("--pygame-fps", type=int, default=60)
+    parser.add_argument("--pygame-animation-seconds", type=float, default=0.5)
+    parser.add_argument(
+        "--pygame-interactive",
+        action="store_true",
+        help="Control step progression from pygame window (SPACE/N step, A auto, +/- speed, ESC/Q quit)",
+    )
     args = parser.parse_args()
 
     parsed_agents = [part.strip().lower() for part in args.agents.split(",") if part.strip()]
@@ -417,6 +648,13 @@ def main():
         show_tree_stats=args.show_tree_stats,
         tree_frontier_k=args.tree_frontier_k,
         tree_frontier_depth=max(1, args.tree_frontier_depth),
+        pygame_render=args.pygame_render,
+        pygame_agent=args.pygame_agent.strip().lower(),
+        pygame_width=max(640, args.pygame_width),
+        pygame_height=max(480, args.pygame_height),
+        pygame_fps=max(10, args.pygame_fps),
+        pygame_animation_seconds=max(0.05, args.pygame_animation_seconds),
+        pygame_interactive=args.pygame_interactive,
     )
 
 
